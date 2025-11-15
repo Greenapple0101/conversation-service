@@ -64,7 +64,7 @@ pipeline {
                     pytest \
                       --timeout=30 \
                       --cov=. \
-                      --cov-report=xml:coverage.xml \
+                      --cov-report=xml:${WORKSPACE}/coverage.xml \
                       --cov-report=term
                 """
             }
@@ -119,7 +119,8 @@ pipeline {
                               -Dsonar.projectKey=conversation-service \
                               -Dsonar.projectName=conversation-service \
                               -Dsonar.sources=. \
-                              -Dsonar.python.coverage.reportPaths=coverage.xml \
+                              -Dsonar.projectBaseDir=${WORKSPACE} \
+                              -Dsonar.python.coverage.reportPaths=${WORKSPACE}/coverage.xml \
                               -Dsonar.scm.provider=git \
                               -Dsonar.host.url=$SONAR_HOST_URL \
                               -Dsonar.login=$SONAR_TOKEN
