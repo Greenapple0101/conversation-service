@@ -187,7 +187,10 @@ pipeline {
             when { expression { env.BRANCH_NAME == 'develop' } }
             steps {
                 sh """
-                    jmeter -n -t loadtest.jmx -l results.jtl
+                    docker run --rm \
+                      -v ${WORKSPACE}:/test \
+                      justb4/jmeter:5.6.3 \
+                      -n -t /test/loadtest.jmx -l /test/results.jtl
                 """
             }
         }
