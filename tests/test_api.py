@@ -389,7 +389,7 @@ class TestTextEmotionDetection:
     
     @patch('api.text_emotion_detect.GOOGLE_APPLICATION_CREDENTIALS_PATH', '/nonexistent/path.json')
     @patch('os.path.exists', return_value=False)
-    def test_text_feeling_detection_invalid_path(self):
+    def test_text_feeling_detection_invalid_path(self, mock_exists):
         """잘못된 자격 증명 경로 테스트"""
         # textFeelingDetection 함수 직접 테스트
         result = textFeelingDetection("테스트 텍스트")

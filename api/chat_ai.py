@@ -35,17 +35,20 @@ class ChatAI(Resource):
 def AIChatBot(content, message):
     if content == None or message == None:
         return {'status': 'FAIL', 'messages': "필수 매개변수값이 없습니다"}
-    message.append({'role':'user','content':content})
-    url = "https://api.openai.com/v1/chat/completions"
-    headers = {
-        "Authorization": f"Bearer {os.getenv('OPENAI_API_KEY')}",
-        "Content-Type": "application/json"
-    }
-    data = {
-        "model": "gpt-4o-mini",
-        "messages": message
-    }
-    response = requests.post(url, headers=headers, json=data)
-    answer = response.json()["choices"][0]['message']['content']
-    message.append({'role': 'assistant', 'content': answer})
-    return {'status': 'SUCCESS', 'messages': answer}
+    try:
+        message.append({'role':'user','content':content})
+        url = "https://api.openai.com/v1/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {os.getenv('OPENAI_API_KEY')}",
+            "Content-Type": "application/json"
+        }
+        data = {
+            "model": "gpt-4o-mini",
+            "messages": message
+        }
+        response = requests.post(url, headers=headers, json=data)
+        answer = response.json()["choices"][0]['message']['content']
+        message.append({'role': 'assistant', 'content': answer})
+        return {'status': 'SUCCESS', 'messages': answer}
+    except Exception as e:
+        return {'status': 'FAIL', 'messages': str(e)}
