@@ -9,7 +9,7 @@ pipeline {
         GITHUB_PAT  = credentials('healthy-real')
         IMAGE_NAME  = "conversation-conv"
 
-        DEV_HOST = "3.34.155.126"
+        DEV_HOST = "13.54.10.35"
         DEV_USER = "ubuntu"
         DEV_DIR  = "/home/ubuntu/conversation-dev"
 
