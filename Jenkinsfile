@@ -57,9 +57,10 @@ pipeline {
                     sh """
                         sonar-scanner \
                           -Dsonar.projectKey=conversation-service \
+                          -Dsonar.projectName=conversation-service \
                           -Dsonar.sources=. \
-                          -Dsonar.host.url=${env.SONAR_HOST_URL} \
-                          -Dsonar.login=${env.SONAR_TOKEN}
+                          -Dsonar.host.url=$SONAR_HOST_URL \
+                          -Dsonar.login=$SONAR_TOKEN
                     """
                 }
             }
