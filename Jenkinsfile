@@ -2,22 +2,22 @@ pipeline {
     agent any
 
     environment {
-        OWNER = "Greenapple0101"
-        REPO = "conversation-service"
+        OWNER       = "Greenapple0101"
+        REPO        = "conversation-service"
         GITHUB_REPO = "https://github.com/devops-healthyreal/conversation-service.git"
 
-        // GitHub PAT (사용할 Credential ID)
-        GITHUB_TOKEN = credentials('healthy-real')
+        // GitHub Personal Access Token (Credential ID)
+        GITHUB_PAT  = credentials('healthy-real')
 
-        // 도커 이미지 이름
+        // Docker image name
         IMAGE_NAME = "conversation-conv"
 
-        // 개발 서버
+        // DEV server
         DEV_HOST = "3.34.155.126"
         DEV_USER = "ubuntu"
         DEV_DIR  = "/home/ubuntu/conversation-dev"
 
-        // 운영 서버
+        // PROD server
         PROD_HOST = "13.124.109.82"
         PROD_USER = "ubuntu"
         PROD_DIR  = "/home/ubuntu/conversation-prod"
@@ -25,22 +25,24 @@ pipeline {
 
     stages {
 
-        /* =============================
-         * 1) Checkout
-         * ============================= */
+        /* ============================================================
+         * 1) 체크아웃 — 현재 빌드되는 브랜치 그대로 가져오기
+         * ============================================================ */
         stage('Checkout') {
             steps {
-                git url: "${GITHUB_REPO}", branch: 'develop', credentialsId: 'healthy-real'
+                checkout scm
+                script {
+                    echo "Current Branch: ${env.BRANCH_NAME}"
+                }
             }
         }
 
-        /* =============================
-         * 2) DEVELOP: SonarQube 분석
-         * ============================= */
+        /* ============================================================
+         * 2) DEVELOP — SonarQube 분석
+         * ============================================================ */
         stage('SonarQube Analysis') {
             when { branch 'develop' }
             steps {
-                echo "🔎 SonarQube 분석 실행"
                 withSonarQubeEnv('sonarqube') {
                     sh """
                         sonar-scanner \
@@ -53,9 +55,9 @@ pipeline {
             }
         }
 
-        /* =============================
-         * 3) DEVELOP: Quality Gate 확인
-         * ============================= */
+        /* ============================================================
+         * 3) DEVELOP — Quality Gate 확인
+         * ============================================================ */
         stage('Quality Gate') {
             when { branch 'develop' }
             steps {
@@ -65,20 +67,17 @@ pipeline {
                         if (qg.status != 'OK') {
                             error "Quality Gate failed: ${qg.status}"
                         }
-                        echo "Quality Gate 통과"
                     }
                 }
             }
         }
 
-        /* =============================
-         * 4) DEVELOP: DEV 서버 배포
-         * ============================= */
+        /* ============================================================
+         * 4) DEVELOP — Dev 서버 배포
+         * ============================================================ */
         stage('Deploy to DEV') {
             when { branch 'develop' }
             steps {
-                echo "DEV 서버(${DEV_HOST}) 배포 진행 중..."
-
                 sshagent(credentials: ['ubuntu']) {
                     sh """
                         docker build -t ${IMAGE_NAME}:dev .
@@ -98,32 +97,28 @@ pipeline {
             }
         }
 
-        /* =============================
-         * 5) DEVELOP: 부하 테스트(JMeter)
-         * ============================= */
+        /* ============================================================
+         * 5) DEVELOP — JMeter 부하 테스트
+         * ============================================================ */
         stage('Load Test') {
             when { branch 'develop' }
             steps {
-                echo "JMeter 부하 테스트 실행..."
                 sh """
                     jmeter -n -t loadtest.jmx -l results.jtl
                 """
             }
         }
 
-        /* =============================
-         * 6) DEVELOP: 부하테스트 PASS → main 자동 merge
-         * ============================= */
+        /* ============================================================
+         * 6) DEVELOP — 부하 테스트 통과 시 main 자동 merge
+         * ============================================================ */
         stage('Auto Merge to Main') {
             when { branch 'develop' }
             steps {
                 script {
-                    echo "부하 테스트 통과 → main 자동 merge 시작"
-
-                    // PR 번호 자동 탐지
                     def pr_num = sh(
                         script: """
-                            curl -s -H "Authorization: token ${GITHUB_TOKEN}" \
+                            curl -s -H "Authorization: token ${GITHUB_PAT}" \
                             https://api.github.com/repos/${OWNER}/${REPO}/pulls?state=open&base=main \
                             | jq '.[0].number'
                         """,
@@ -131,33 +126,28 @@ pipeline {
                     ).trim()
 
                     if (pr_num == "null" || pr_num == "") {
-                        error "main으로 merge 할 PR이 존재하지 않습니다."
+                        error "No open PR for merging into main."
                     }
 
                     env.PR_NUMBER = pr_num
 
-                    // GitHub PR merge 요청
                     sh """
                         curl -X PUT \
-                          -H "Authorization: token ${GITHUB_TOKEN}" \
+                          -H "Authorization: token ${GITHUB_PAT}" \
                           -H "Accept: application/vnd.github.v3+json" \
                           https://api.github.com/repos/${OWNER}/${REPO}/pulls/${PR_NUMBER}/merge \
                           -d '{"merge_method":"merge"}'
                     """
-
-                    echo "PR #${PR_NUMBER} → main 자동 merge 완료"
                 }
             }
         }
 
-        /* =============================
-         * 7) MAIN: 운영 서버 배포
-         * ============================= */
+        /* ============================================================
+         * 7) MAIN — 운영 서버 배포
+         * ============================================================ */
         stage('Deploy to PROD') {
             when { branch 'main' }
             steps {
-                echo "운영 서버(${PROD_HOST}) 배포 시작..."
-
                 sshagent(credentials: ['ubuntu']) {
                     sh """
                         docker build -t ${IMAGE_NAME}:latest .
