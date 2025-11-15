@@ -72,6 +72,40 @@ pipeline {
         stage('SonarQube Analysis') {
             when { expression { env.BRANCH_NAME == 'develop' } }
             steps {
+                script {
+                    // SonarQube 헬스 체크 - 완전히 준비될 때까지 대기
+                    echo "SonarQube 헬스 체크 시작..."
+                    def maxWaitTime = 120  // 최대 2분 대기
+                    def waitTime = 0
+                    def isReady = false
+                    
+                    while (waitTime < maxWaitTime && !isReady) {
+                        try {
+                            def status = sh(
+                                script: "curl -s ${SONAR_HOST_URL}/api/system/status | grep -o '\"status\":\"[^\"]*\"' | cut -d'\"' -f4",
+                                returnStdout: true
+                            ).trim()
+                            
+                            if (status == "UP") {
+                                echo "SonarQube가 준비되었습니다. (상태: ${status})"
+                                isReady = true
+                            } else {
+                                echo "SonarQube 대기중... (현재 상태: ${status}, 대기 시간: ${waitTime}초)"
+                                sleep(5)
+                                waitTime += 5
+                            }
+                        } catch (Exception e) {
+                            echo "SonarQube 연결 시도 중... (대기 시간: ${waitTime}초)"
+                            sleep(5)
+                            waitTime += 5
+                        }
+                    }
+                    
+                    if (!isReady) {
+                        error "SonarQube가 ${maxWaitTime}초 내에 준비되지 않았습니다."
+                    }
+                }
+                
                 withSonarQubeEnv('sonarqube') {
                     script {
                         def scannerHome = tool 'sonar-scanner'
