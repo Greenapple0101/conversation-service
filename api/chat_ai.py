@@ -1,5 +1,4 @@
 import os
-from flask import jsonify
 from flask_restful import Resource
 from flask import request
 from dotenv import load_dotenv
@@ -22,16 +21,17 @@ class ChatAI(Resource):
                     Please indicate the link https://health.kdca.go.kr/healthinfo/ for additional health information.
                     All answers must be provided in Korean.
                     '''}]
-            content = request.json['message']
+            args = request.get_json() or {}
+            content = args.get('message', '')
             response = AIChatBot(content, messages)
             
             if response['status'] == 'SUCCESS':
                 answer = response['messages']
-                return jsonify({"answer": answer})
+                return {"answer": answer}, 200
             else:
-                return jsonify({"status": "FAIL", "answer": response.get('messages', 'Unknown error')}), 500
+                return {"status": "FAIL", "answer": response.get('messages', 'Unknown error')}, 500
         except Exception as e:
-            return jsonify({"status": "FAIL", "answer": str(e)}), 500
+            return {"status": "FAIL", "answer": str(e)}, 500
 
 
 def AIChatBot(content, message):
@@ -53,4 +53,4 @@ def AIChatBot(content, message):
         message.append({'role': 'assistant', 'content': answer})
         return {'status': 'SUCCESS', 'messages': answer}
     except Exception as e:
-        return {'status': 'FAIL', 'messages': str(e)}
+        return {'status': 'FAIL', 'messages': "API Error"}
