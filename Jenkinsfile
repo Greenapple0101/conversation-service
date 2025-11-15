@@ -29,7 +29,10 @@ pipeline {
         stage('Checkout') {
             steps {
                 checkout scm
-
+                
+                // Shallow clone 방지 (git blame 정보를 위해 전체 히스토리 필요)
+                sh "git fetch --unshallow || true"
+                
                 script {
                     if (env.GIT_BRANCH) {
                         env.BRANCH_NAME = env.GIT_BRANCH.replace("origin/", "")
@@ -60,8 +63,9 @@ pipeline {
 
                     pytest \
                       --timeout=30 \
-                      --cov=api \
-                      --cov-report=xml:coverage.xml
+                      --cov=. \
+                      --cov-report=xml:coverage.xml \
+                      --cov-report=term
                 """
             }
         }
@@ -116,6 +120,7 @@ pipeline {
                               -Dsonar.projectName=conversation-service \
                               -Dsonar.sources=. \
                               -Dsonar.python.coverage.reportPaths=coverage.xml \
+                              -Dsonar.scm.provider=git \
                               -Dsonar.host.url=$SONAR_HOST_URL \
                               -Dsonar.login=$SONAR_TOKEN
                         """
