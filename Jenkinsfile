@@ -121,6 +121,7 @@ pipeline {
                               -Dsonar.sources=. \
                               -Dsonar.projectBaseDir=${WORKSPACE} \
                               -Dsonar.python.coverage.reportPaths=${WORKSPACE}/coverage.xml \
+                              -Dsonar.exclusions=venv/**,**/venv/** \
                               -Dsonar.scm.provider=git \
                               -Dsonar.scm.exclusions.disabled=true \
                               -Dsonar.host.url=$SONAR_HOST_URL \
