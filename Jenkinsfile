@@ -45,7 +45,7 @@ pipeline {
         }
 
         /* ============================================================
-         * 2) DEVELOP — Test & Coverage
+         * 2) DEVELOP - Test & Coverage
          * ============================================================ */
         stage('Test & Coverage') {
             when { expression { env.BRANCH_NAME == 'develop' } }
