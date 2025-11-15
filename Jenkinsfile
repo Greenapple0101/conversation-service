@@ -21,16 +21,23 @@ pipeline {
     stages {
 
         /* ============================================================
-         * 1) 체크아웃 및 브랜치명 수동 감지
+         * 1) Checkout + 브랜치 자동 감지 (HEAD 문제 완전 해결)
          * ============================================================ */
         stage('Checkout') {
             steps {
                 checkout scm
+
                 script {
-                    env.BRANCH_NAME = sh(
-                        script: "git rev-parse --abbrev-ref HEAD",
-                        returnStdout: true
-                    ).trim()
+                    // GitHub → Jenkins webhook이 넘겨주는 브랜치 정보
+                    if (env.GIT_BRANCH) {
+                        env.BRANCH_NAME = env.GIT_BRANCH.replace("origin/", "")
+                    } else {
+                        // fallback
+                        env.BRANCH_NAME = sh(
+                            script: "git rev-parse --abbrev-ref HEAD",
+                            returnStdout: true
+                        ).trim()
+                    }
 
                     echo "Detected Branch: ${env.BRANCH_NAME}"
                 }
@@ -98,7 +105,7 @@ pipeline {
         }
 
         /* ============================================================
-         * 5) DEVELOP — Load Test
+         * 5) DEVELOP — Load Test (JMeter)
          * ============================================================ */
         stage('Load Test') {
             when { expression { env.BRANCH_NAME == 'develop' } }
