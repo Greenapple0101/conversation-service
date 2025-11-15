@@ -118,10 +118,10 @@ pipeline {
                             ${scannerHome}/bin/sonar-scanner \
                               -Dsonar.projectKey=conversation-service \
                               -Dsonar.projectName=conversation-service \
-                              -Dsonar.sources=. \
+                              -Dsonar.sources=api,app.py \
                               -Dsonar.projectBaseDir=${WORKSPACE} \
                               -Dsonar.python.coverage.reportPaths=${WORKSPACE}/coverage.xml \
-                              -Dsonar.exclusions=venv/**,**/venv/** \
+                              -Dsonar.exclusions=venv/**,**/venv/**,**/__pycache__/**,**/*.pyc,**/tests/**,**/node_modules/**,**/.git/** \
                               -Dsonar.scm.provider=git \
                               -Dsonar.scm.exclusions.disabled=true \
                               -Dsonar.host.url=$SONAR_HOST_URL \
