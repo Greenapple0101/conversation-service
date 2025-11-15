@@ -59,6 +59,7 @@ pipeline {
                     pip install pytest pytest-cov
 
                     pytest \
+                      --timeout=30 \
                       --cov=api \
                       --cov-report=xml:coverage.xml
                 """

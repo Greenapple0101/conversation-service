@@ -213,8 +213,11 @@ class TestChatAI:
             content_type='application/json'
         )
         
-        # 에러 발생 시 500 또는 예외 처리
-        assert response.status_code in [200, 500]
+        # 에러 발생 시 500 상태 코드와 FAIL 응답 반환 확인
+        assert response.status_code == 500
+        data = json.loads(response.data)
+        assert data['status'] == 'FAIL'
+        assert 'answer' in data
     
     @patch.dict(os.environ, {'OPENAI_API_KEY': 'test_api_key'})
     @patch('api.chat_ai.requests.post')
