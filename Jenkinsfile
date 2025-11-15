@@ -6,18 +6,13 @@ pipeline {
         REPO        = "conversation-service"
         GITHUB_REPO = "https://github.com/devops-healthyreal/conversation-service.git"
 
-        // GitHub Personal Access Token (Credential ID)
         GITHUB_PAT  = credentials('healthy-real')
+        IMAGE_NAME  = "conversation-conv"
 
-        // Docker image name
-        IMAGE_NAME = "conversation-conv"
-
-        // DEV server
         DEV_HOST = "3.34.155.126"
         DEV_USER = "ubuntu"
         DEV_DIR  = "/home/ubuntu/conversation-dev"
 
-        // PROD server
         PROD_HOST = "13.124.109.82"
         PROD_USER = "ubuntu"
         PROD_DIR  = "/home/ubuntu/conversation-prod"
@@ -26,13 +21,18 @@ pipeline {
     stages {
 
         /* ============================================================
-         * 1) 체크아웃 — 현재 빌드되는 브랜치 그대로 가져오기
+         * 1) 체크아웃 및 브랜치명 수동 감지
          * ============================================================ */
         stage('Checkout') {
             steps {
                 checkout scm
                 script {
-                    echo "Current Branch: ${env.BRANCH_NAME}"
+                    env.BRANCH_NAME = sh(
+                        script: "git rev-parse --abbrev-ref HEAD",
+                        returnStdout: true
+                    ).trim()
+
+                    echo "Detected Branch: ${env.BRANCH_NAME}"
                 }
             }
         }
@@ -41,7 +41,7 @@ pipeline {
          * 2) DEVELOP — SonarQube 분석
          * ============================================================ */
         stage('SonarQube Analysis') {
-            when { branch 'develop' }
+            when { expression { env.BRANCH_NAME == 'develop' } }
             steps {
                 withSonarQubeEnv('sonarqube') {
                     sh """
@@ -56,10 +56,10 @@ pipeline {
         }
 
         /* ============================================================
-         * 3) DEVELOP — Quality Gate 확인
+         * 3) DEVELOP — Quality Gate
          * ============================================================ */
         stage('Quality Gate') {
-            when { branch 'develop' }
+            when { expression { env.BRANCH_NAME == 'develop' } }
             steps {
                 timeout(time: 2, unit: 'MINUTES') {
                     script {
@@ -73,10 +73,10 @@ pipeline {
         }
 
         /* ============================================================
-         * 4) DEVELOP — Dev 서버 배포
+         * 4) DEVELOP — DEV 서버 배포
          * ============================================================ */
         stage('Deploy to DEV') {
-            when { branch 'develop' }
+            when { expression { env.BRANCH_NAME == 'develop' } }
             steps {
                 sshagent(credentials: ['ubuntu']) {
                     sh """
@@ -98,10 +98,10 @@ pipeline {
         }
 
         /* ============================================================
-         * 5) DEVELOP — JMeter 부하 테스트
+         * 5) DEVELOP — Load Test
          * ============================================================ */
         stage('Load Test') {
-            when { branch 'develop' }
+            when { expression { env.BRANCH_NAME == 'develop' } }
             steps {
                 sh """
                     jmeter -n -t loadtest.jmx -l results.jtl
@@ -110,10 +110,10 @@ pipeline {
         }
 
         /* ============================================================
-         * 6) DEVELOP — 부하 테스트 통과 시 main 자동 merge
+         * 6) DEVELOP — Auto Merge to Main
          * ============================================================ */
         stage('Auto Merge to Main') {
-            when { branch 'develop' }
+            when { expression { env.BRANCH_NAME == 'develop' } }
             steps {
                 script {
                     def pr_num = sh(
@@ -143,10 +143,10 @@ pipeline {
         }
 
         /* ============================================================
-         * 7) MAIN — 운영 서버 배포
+         * 7) MAIN — PROD 배포
          * ============================================================ */
         stage('Deploy to PROD') {
-            when { branch 'main' }
+            when { expression { env.BRANCH_NAME == 'main' } }
             steps {
                 sshagent(credentials: ['ubuntu']) {
                     sh """
