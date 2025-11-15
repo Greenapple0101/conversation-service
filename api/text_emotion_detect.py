@@ -5,10 +5,12 @@ load_dotenv()
 env_path = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
 if env_path and not os.path.isabs(env_path):
     env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), env_path)
-GOOGLE_APPLICATION_CREDENTIALS_PATH = os.path.abspath(
-    os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+raw_path = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
+GOOGLE_APPLICATION_CREDENTIALS_PATH = (
+    os.path.abspath(raw_path) if raw_path else None
 )
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = GOOGLE_APPLICATION_CREDENTIALS_PATH
+if GOOGLE_APPLICATION_CREDENTIALS_PATH:
+    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = GOOGLE_APPLICATION_CREDENTIALS_PATH
 
 import sys
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
