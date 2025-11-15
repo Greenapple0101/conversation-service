@@ -20,6 +20,7 @@ class Summary(Resource):
             'X-NCP-APIGW-API-KEY-ID': self.client_id,
             'X-NCP-APIGW-API-KEY': self.client_secret
         }
+        self.url = 'https://naveropenapi.apigw.ntruss.com/text-summary/v1/summarize'
         super(Summary, self).__init__()
 
     def post(self):
