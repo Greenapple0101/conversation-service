@@ -152,7 +152,7 @@ pipeline {
         stage('Deploy to DEV') {
             when { expression { env.BRANCH_NAME == 'develop' } }
             steps {
-                sshagent(credentials: ['ubuntu']) {
+                sshagent(credentials: ['sca-key']) {
                     sh """
                         docker build -t ${IMAGE_NAME}:dev .
                         docker save ${IMAGE_NAME}:dev | gzip > image.tar.gz
