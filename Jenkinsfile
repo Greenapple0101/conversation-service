@@ -24,31 +24,45 @@ pipeline {
     stages {
 
         /* ============================================================
-         * 1) Checkout + 브랜치 자동 감지 (HEAD 문제 완전 해결)
+         * 1) Checkout + 브랜치 자동 감지
          * ============================================================ */
         stage('Checkout') {
             steps {
                 checkout scm
 
                 script {
-                    // GitHub → Jenkins webhook이 넘겨주는 브랜치 정보
                     if (env.GIT_BRANCH) {
                         env.BRANCH_NAME = env.GIT_BRANCH.replace("origin/", "")
                     } else {
-                        // fallback
                         env.BRANCH_NAME = sh(
                             script: "git rev-parse --abbrev-ref HEAD",
                             returnStdout: true
                         ).trim()
                     }
-
                     echo "Detected Branch: ${env.BRANCH_NAME}"
                 }
             }
         }
 
         /* ============================================================
-         * 2) DEVELOP — SonarQube 분석
+         * 2) DEVELOP — Test & Coverage
+         * ============================================================ */
+        stage('Test & Coverage') {
+            when { expression { env.BRANCH_NAME == 'develop' } }
+            steps {
+                sh """
+                    pip install -r requirements.txt
+                    pip install pytest pytest-cov
+
+                    pytest \
+                      --cov=api \
+                      --cov-report=xml:coverage.xml
+                """
+            }
+        }
+
+        /* ============================================================
+         * 3) DEVELOP — SonarQube 분석
          * ============================================================ */
         stage('SonarQube Analysis') {
             when { expression { env.BRANCH_NAME == 'develop' } }
@@ -59,6 +73,7 @@ pipeline {
                           -Dsonar.projectKey=conversation-service \
                           -Dsonar.projectName=conversation-service \
                           -Dsonar.sources=. \
+                          -Dsonar.python.coverage.reportPaths=coverage.xml \
                           -Dsonar.host.url=$SONAR_HOST_URL \
                           -Dsonar.login=$SONAR_TOKEN
                     """
@@ -67,7 +82,7 @@ pipeline {
         }
 
         /* ============================================================
-         * 3) DEVELOP — Quality Gate
+         * 4) DEVELOP — Quality Gate
          * ============================================================ */
         stage('Quality Gate') {
             when { expression { env.BRANCH_NAME == 'develop' } }
@@ -84,7 +99,7 @@ pipeline {
         }
 
         /* ============================================================
-         * 4) DEVELOP — DEV 서버 배포
+         * 5) DEVELOP — DEV 서버 배포
          * ============================================================ */
         stage('Deploy to DEV') {
             when { expression { env.BRANCH_NAME == 'develop' } }
@@ -109,7 +124,7 @@ pipeline {
         }
 
         /* ============================================================
-         * 5) DEVELOP — Load Test (JMeter)
+         * 6) DEVELOP — Load Test (JMeter)
          * ============================================================ */
         stage('Load Test') {
             when { expression { env.BRANCH_NAME == 'develop' } }
@@ -121,7 +136,7 @@ pipeline {
         }
 
         /* ============================================================
-         * 6) DEVELOP — Auto Merge to Main
+         * 7) DEVELOP — Auto Merge to Main
          * ============================================================ */
         stage('Auto Merge to Main') {
             when { expression { env.BRANCH_NAME == 'develop' } }
@@ -154,7 +169,7 @@ pipeline {
         }
 
         /* ============================================================
-         * 7) MAIN — PROD 배포
+         * 8) MAIN — PROD 배포
          * ============================================================ */
         stage('Deploy to PROD') {
             when { expression { env.BRANCH_NAME == 'main' } }
