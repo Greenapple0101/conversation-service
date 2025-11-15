@@ -1,13 +1,6 @@
 pipeline {
     agent any
 
-    /* ============================================================
-     * Tools (SonarQube Scanner 자동 설치 PATH 등록)
-     * ============================================================ */
-    tools {
-        sonarQubeScanner 'sonar'
-    }
-
     environment {
         OWNER       = "Greenapple0101"
         REPO        = "conversation-service"
@@ -23,26 +16,32 @@ pipeline {
         PROD_HOST = "13.124.109.82"
         PROD_USER = "ubuntu"
         PROD_DIR  = "/home/ubuntu/conversation-prod"
+
+        SONAR_TOKEN = credentials('sonar-token')
+        SONAR_HOST_URL = "http://3.34.155.126:9000"
     }
 
     stages {
 
         /* ============================================================
-         * 1) Checkout + 브랜치 자동 감지
+         * 1) Checkout + 브랜치 자동 감지 (HEAD 문제 완전 해결)
          * ============================================================ */
         stage('Checkout') {
             steps {
                 checkout scm
 
                 script {
+                    // GitHub → Jenkins webhook이 넘겨주는 브랜치 정보
                     if (env.GIT_BRANCH) {
                         env.BRANCH_NAME = env.GIT_BRANCH.replace("origin/", "")
                     } else {
+                        // fallback
                         env.BRANCH_NAME = sh(
                             script: "git rev-parse --abbrev-ref HEAD",
                             returnStdout: true
                         ).trim()
                     }
+
                     echo "Detected Branch: ${env.BRANCH_NAME}"
                 }
             }
@@ -59,8 +58,8 @@ pipeline {
                         sonar-scanner \
                           -Dsonar.projectKey=conversation-service \
                           -Dsonar.sources=. \
-                          -Dsonar.host.url=${SONAR_HOST_URL} \
-                          -Dsonar.login=${SONAR_TOKEN}
+                          -Dsonar.host.url=${env.SONAR_HOST_URL} \
+                          -Dsonar.login=${env.SONAR_TOKEN}
                     """
                 }
             }
