@@ -98,9 +98,14 @@ pipeline {
             steps {
                 timeout(time: 10, unit: 'MINUTES') {
                     script {
-                        def qg = waitForQualityGate()
-                        if (qg.status != 'OK') {
-                            error "Quality Gate failed: ${qg.status}"
+                        try {
+                            def qg = waitForQualityGate()
+                            if (qg.status != 'OK') {
+                                error "Quality Gate failed: ${qg.status}"
+                            }
+                        } catch (Exception e) {
+                            echo "Quality Gate check failed: ${e.getMessage()}"
+                            error "Quality Gate check failed: ${e.getMessage()}"
                         }
                     }
                 }
