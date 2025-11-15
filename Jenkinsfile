@@ -16,6 +16,9 @@ pipeline {
         PROD_HOST = "13.124.109.82"
         PROD_USER = "ubuntu"
         PROD_DIR  = "/home/ubuntu/conversation-prod"
+
+        SONAR_TOKEN = credentials('sonar-token')
+        SONAR_HOST_URL = "http://3.34.155.126:9000"
     }
 
     stages {
