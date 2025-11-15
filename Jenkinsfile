@@ -67,7 +67,7 @@ pipeline {
         }
 
         /* ============================================================
-         * 3) DEVELOP — SonarQube 분석
+         * 3) DEVELOP - SonarQube 분석
          * ============================================================ */
         stage('SonarQube Analysis') {
             when { expression { env.BRANCH_NAME == 'develop' } }
