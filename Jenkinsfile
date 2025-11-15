@@ -58,8 +58,8 @@ pipeline {
                         sonar-scanner \
                           -Dsonar.projectKey=conversation-service \
                           -Dsonar.sources=. \
-                          -Dsonar.host.url=${SONAR_HOST_URL} \
-                          -Dsonar.login=${SONAR_TOKEN}
+                          -Dsonar.host.url=${env.SONAR_HOST_URL} \
+                          -Dsonar.login=${env.SONAR_TOKEN}
                     """
                 }
             }
