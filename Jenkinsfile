@@ -165,6 +165,7 @@ pipeline {
                         docker build -t ${IMAGE_NAME}:dev .
                         docker save ${IMAGE_NAME}:dev | gzip > image.tar.gz
 
+                        ssh -o StrictHostKeyChecking=no ${DEV_USER}@${DEV_HOST} "mkdir -p ${DEV_DIR}"
                         scp -o StrictHostKeyChecking=no image.tar.gz ${DEV_USER}@${DEV_HOST}:${DEV_DIR}/image.tar.gz
 
                         ssh -o StrictHostKeyChecking=no ${DEV_USER}@${DEV_HOST} "
@@ -235,6 +236,7 @@ pipeline {
                         docker build -t ${IMAGE_NAME}:latest .
                         docker save ${IMAGE_NAME}:latest | gzip > image.tar.gz
 
+                        ssh -o StrictHostKeyChecking=no ${PROD_USER}@${PROD_HOST} "mkdir -p ${PROD_DIR}"
                         scp -o StrictHostKeyChecking=no image.tar.gz ${PROD_USER}@${PROD_HOST}:${PROD_DIR}/image.tar.gz
 
                         ssh -o StrictHostKeyChecking=no ${PROD_USER}@${PROD_HOST} "
