@@ -73,6 +73,8 @@ pipeline {
             when { expression { env.BRANCH_NAME == 'develop' } }
             steps {
                 withSonarQubeEnv('sonarqube') {
+                    script{
+                        def scannerHome = tool 'sonar-scanner'
                     sh """
                         sonar-scanner \
                           -Dsonar.projectKey=conversation-service \
@@ -82,6 +84,7 @@ pipeline {
                           -Dsonar.host.url=$SONAR_HOST_URL \
                           -Dsonar.login=$SONAR_TOKEN
                     """
+                    }
                 }
             }
         }
