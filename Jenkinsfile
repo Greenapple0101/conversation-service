@@ -210,7 +210,7 @@ pipeline {
                     """
                     
                     // p95 응답시간 계산 및 성능 Gate 체크
-                    def p95Threshold = 8000  // 8초 (밀리초) - 현실적인 기준값
+                    def p95Threshold = 12000  // 12초 (밀리초) - 외부 API(GPT) 포함한 현실적인 기준값
                     
                     // Python 스크립트 실행 (3중 작은따옴표로 들여쓰기 문제 해결)
                     def result = sh(
@@ -219,7 +219,7 @@ python3 << 'EOF'
 import csv
 import sys
 
-threshold = 8000
+threshold = 12000
 response_times = []
 
 try:
