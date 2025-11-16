@@ -289,35 +289,36 @@ EOF
                         // PR이 없으면 생성
                         echo "Creating PR from develop to main..."
                         
-                        // JSON payload를 triple single quotes로 분리 (Groovy 문자열 인터폴레이션 방지)
-                        def prPayload = '''
-{
-  "title": "Auto PR: develop → main",
-  "head": "develop",
-  "base": "main",
-  "body": "자동 생성된 PR입니다. Load Test 통과 후 자동으로 merge됩니다."
-}
-'''
+                        // JSON payload를 직접 curl로 전달 (Groovy 문자열 인터폴레이션 문제 완전 해결)
+                        sh """
+                            curl -s -X POST \
+                              -H "Authorization: token ${GITHUB_PAT}" \
+                              -H "Accept: application/vnd.github.v3+json" \
+                              https://api.github.com/repos/${OWNER}/${REPO}/pulls \
+                              -d '{
+                                    "title": "Auto PR: develop → main",
+                                    "head": "develop",
+                                    "base": "main",
+                                    "body": "자동 생성된 PR입니다. Load Test 통과 후 자동 merge됩니다."
+                                  }' | tee pr.json
+                        """
                         
-                        def pr_response = sh(
-                            script: """
-                                curl -s -X POST \
-                                  -H "Authorization: token ${GITHUB_PAT}" \
-                                  -H "Accept: application/vnd.github.v3+json" \
-                                  https://api.github.com/repos/${OWNER}/${REPO}/pulls \
-                                  -d '${prPayload}' | jq -r '.number'
-                            """,
+                        // PR 번호 추출 및 검증
+                        def pr_number = sh(
+                            script: '''
+                                PR_NUMBER=$(jq -r '.number' pr.json)
+                                echo "PR response: $PR_NUMBER"
+                                if [ "$PR_NUMBER" = "null" ] || [ -z "$PR_NUMBER" ]; then
+                                  echo "Failed to create PR."
+                                  exit 1
+                                fi
+                                echo $PR_NUMBER
+                            ''',
                             returnStdout: true
                         ).trim()
                         
-                        echo "PR response: ${pr_response}"
-                        
-                        if (pr_response && pr_response != "null" && pr_response != "") {
-                            env.PR_NUMBER = pr_response
-                            echo "PR created: #${env.PR_NUMBER}"
-                        } else {
-                            error "Failed to create PR. Response: ${pr_response}"
-                        }
+                        env.PR_NUMBER = pr_number
+                        echo "PR created: #${env.PR_NUMBER}"
                     } else {
                         // PR이 이미 있으면 기존 PR 번호 사용
                         env.PR_NUMBER = existing_pr
