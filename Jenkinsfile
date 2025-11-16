@@ -283,8 +283,8 @@ EOF
                                 curl -s -H "Authorization: Bearer \${GITHUB_PAT}" \\
                                     -H "X-GitHub-Api-Version: 2022-11-28" \\
                                     -H "Accept: application/vnd.github.v3+json" \\
-                                    https://api.github.com/repos/\${OWNER}/\${REPO}/pulls?state=open&base=main&head=\${OWNER}:develop \\
-                                    | jq '.[0].number'
+                                    https://api.github.com/repos/\${OWNER}/\${REPO}/pulls?state=open \\
+                                    | jq -r '[.[] | select(.head.ref=="develop" and .base.ref=="main") | .number][0]'
                             """,
                             returnStdout: true
                         ).trim()
@@ -339,8 +339,8 @@ EOF
                                         curl -s -H "Authorization: Bearer \${GITHUB_PAT}" \\
                                             -H "X-GitHub-Api-Version: 2022-11-28" \\
                                             -H "Accept: application/vnd.github.v3+json" \\
-                                            https://api.github.com/repos/\${OWNER}/\${REPO}/pulls?state=open&base=main \\
-                                            | jq -r '.[] | select(.head.ref=="develop" and .base.ref=="main") | .number' | head -1
+                                            https://api.github.com/repos/\${OWNER}/\${REPO}/pulls?state=open \\
+                                            | jq -r '[.[] | select(.head.ref=="develop" and .base.ref=="main") | .number][0]'
                                     """,
                                     returnStdout: true
                                 ).trim()
@@ -386,8 +386,8 @@ EOF
                                     curl -s -H "Authorization: Bearer \${GITHUB_PAT}" \\
                                         -H "X-GitHub-Api-Version: 2022-11-28" \\
                                         -H "Accept: application/vnd.github.v3+json" \\
-                                        https://api.github.com/repos/\${OWNER}/\${REPO}/pulls?state=open&base=main \\
-                            | jq '.[0].number'
+                                        https://api.github.com/repos/\${OWNER}/\${REPO}/pulls?state=open \\
+                                        | jq -r '[.[] | select(.head.ref=="develop" and .base.ref=="main") | .number][0]'
                         """,
                         returnStdout: true
                     ).trim()
