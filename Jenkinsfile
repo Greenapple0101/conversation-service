@@ -32,7 +32,7 @@ pipeline {
                 
                 // Shallow clone 방지 (git blame 정보를 위해 전체 히스토리 필요)
                 sh "git fetch --unshallow || true"
-                
+
                 script {
                     if (env.GIT_BRANCH) {
                         env.BRANCH_NAME = env.GIT_BRANCH.replace("origin/", "")
@@ -113,20 +113,20 @@ pipeline {
                 withSonarQubeEnv('sonarqube') {
                     script {
                         def scannerHome = tool 'sonar-scanner'
-                        sh """
+                    sh """
                             export PATH=${scannerHome}/bin:\$PATH
                             ${scannerHome}/bin/sonar-scanner \
-                              -Dsonar.projectKey=conversation-service \
-                              -Dsonar.projectName=conversation-service \
+                          -Dsonar.projectKey=conversation-service \
+                          -Dsonar.projectName=conversation-service \
                               -Dsonar.sources=api,app.py \
                               -Dsonar.projectBaseDir=${WORKSPACE} \
                               -Dsonar.python.coverage.reportPaths=${WORKSPACE}/coverage.xml \
                               -Dsonar.exclusions=venv/**,**/venv/**,**/__pycache__/**,**/*.pyc,**/tests/**,**/node_modules/**,**/.git/** \
                               -Dsonar.scm.provider=git \
                               -Dsonar.scm.exclusions.disabled=true \
-                              -Dsonar.host.url=$SONAR_HOST_URL \
-                              -Dsonar.login=$SONAR_TOKEN
-                        """
+                          -Dsonar.host.url=$SONAR_HOST_URL \
+                          -Dsonar.login=$SONAR_TOKEN
+                    """
                     }
                 }
             }
@@ -140,11 +140,11 @@ pipeline {
             steps {
                 timeout(time: 10, unit: 'MINUTES') {
                     withSonarQubeEnv('sonarqube') {
-                        script {
+                    script {
                             try {
                                 def qg = waitForQualityGate abortPipeline: true
-                                if (qg.status != 'OK') {
-                                    error "Quality Gate failed: ${qg.status}"
+                        if (qg.status != 'OK') {
+                            error "Quality Gate failed: ${qg.status}"
                                 }
                             } catch (Exception e) {
                                 echo "Quality Gate check failed: ${e.getMessage()}"
@@ -204,7 +204,7 @@ pipeline {
                     """
                     
                     // JMeter 실행 (절대 경로 사용 - 가장 안전한 방식)
-                    sh """
+                sh """
                         /opt/jmeter/bin/jmeter -n -t ${WORKSPACE}/loadtest.jmx -l ${WORKSPACE}/results.jtl -JDEV_HOST=${DEV_HOST} -JDEV_PORT=8000
                     """
                     
@@ -290,46 +290,75 @@ EOF
                         ).trim()
 
                         if (existing_pr == "null" || existing_pr == "") {
-                            // PR이 없으면 생성
+                            // PR이 없으면 생성 시도
                             echo "Creating PR from develop to main..."
                             
-                            // withCredentials로 안전하게 토큰 전달, sh ''' ''' 형식으로 Groovy interpolation 방지
-                            sh """
-                                export OWNER=${OWNER}
-                                export REPO=${REPO}
-                                curl -s -X POST \\
-                                    -H "Authorization: Bearer \${GITHUB_PAT}" \\
-                                    -H "X-GitHub-Api-Version: 2022-11-28" \\
-                                    -H "Accept: application/vnd.github.v3+json" \\
-                                    https://api.github.com/repos/\${OWNER}/\${REPO}/pulls \\
-                                    -d '{
-                                        "title": "Auto PR: develop → main",
-                                        "head": "develop",
-                                        "base": "main",
-                                        "body": "자동 생성된 PR입니다. Load Test 통과 후 자동 merge됩니다."
-                                    }' | tee pr.json
-                            """
-                            
-                            // PR 번호 추출 및 검증 (메시지는 stderr로, 값만 stdout으로)
-                            def pr_number = sh(
-                                script: '''
-                                    PR_NUMBER=$(jq -r '.number' pr.json)
-                                    if [ "$PR_NUMBER" = "null" ] || [ -z "$PR_NUMBER" ]; then
-                                      echo "Failed to create PR." >&2
-                                      exit 1
-                                    fi
-                                    echo "PR_NUMBER=$PR_NUMBER" >&2
-                                    echo $PR_NUMBER
-                                ''',
+                            // PR 생성 시도 (422 오류 처리 포함)
+                            def http_code = sh(
+                                script: """
+                                    export OWNER=${OWNER}
+                                    export REPO=${REPO}
+                                    HTTP_CODE=\$(curl -s -w "%{http_code}" -o pr.json -X POST \\
+                                        -H "Authorization: Bearer \${GITHUB_PAT}" \\
+                                        -H "X-GitHub-Api-Version: 2022-11-28" \\
+                                        -H "Accept: application/vnd.github.v3+json" \\
+                                        https://api.github.com/repos/\${OWNER}/\${REPO}/pulls \\
+                                        -d '{
+                                            "title": "Auto PR: develop → main",
+                                            "head": "develop",
+                                            "base": "main",
+                                            "body": "자동 생성된 PR입니다. Load Test 통과 후 자동 merge됩니다."
+                                        }')
+                                    echo \$HTTP_CODE
+                                """,
                                 returnStdout: true
                             ).trim()
                             
-                            if (!pr_number || pr_number.isEmpty()) {
-                                error "Failed to extract PR number from response"
-                            }
+                            def pr_number = ""
                             
-                            env.PR_NUMBER = pr_number
-                            echo "PR created: #${env.PR_NUMBER}"
+                            if (http_code == "201") {
+                                // PR 생성 성공
+                                pr_number = sh(
+                                    script: '''
+                                        PR_NUMBER=$(jq -r '.number' pr.json)
+                                        echo "PR_NUMBER=$PR_NUMBER" >&2
+                                        echo $PR_NUMBER
+                                    ''',
+                                    returnStdout: true
+                                ).trim()
+                                
+                                env.PR_NUMBER = pr_number
+                                echo "PR created: #${env.PR_NUMBER}"
+                            } else if (http_code == "422") {
+                                // 422 오류: 이미 PR이 존재하는 경우
+                                echo "PR already exists (422 error). Fetching existing PR..."
+                                def existing_pr_retry = sh(
+                                    script: """
+                                        export OWNER=${OWNER}
+                                        export REPO=${REPO}
+                                        curl -s -H "Authorization: Bearer \${GITHUB_PAT}" \\
+                                            -H "X-GitHub-Api-Version: 2022-11-28" \\
+                                            -H "Accept: application/vnd.github.v3+json" \\
+                                            https://api.github.com/repos/\${OWNER}/\${REPO}/pulls?state=open&base=main \\
+                                            | jq -r '.[] | select(.head.ref=="develop" and .base.ref=="main") | .number' | head -1
+                                    """,
+                                    returnStdout: true
+                                ).trim()
+                                
+                                if (existing_pr_retry && existing_pr_retry != "null" && !existing_pr_retry.isEmpty()) {
+                                    env.PR_NUMBER = existing_pr_retry
+                                    echo "Using existing PR: #${env.PR_NUMBER}"
+                                } else {
+                                    error "Failed to create PR (422) and could not find existing PR. Manual check required."
+                                }
+                            } else {
+                                // 기타 오류
+                                def error_msg = sh(
+                                    script: 'jq -r ".message // .error // \"Unknown error\"" pr.json',
+                                    returnStdout: true
+                                ).trim()
+                                error "Failed to create PR (HTTP ${http_code}): ${error_msg}"
+                            }
                         } else {
                             // PR이 이미 있으면 기존 PR 번호 사용
                             env.PR_NUMBER = existing_pr
@@ -350,29 +379,29 @@ EOF
                     withCredentials([string(credentialsId: 'github-pat', variable: 'GITHUB_PAT')]) {
                         // PR 번호 확인
                         if (!env.PR_NUMBER) {
-                            def pr_num = sh(
-                                script: """
+                    def pr_num = sh(
+                        script: """
                                     export OWNER=${OWNER}
                                     export REPO=${REPO}
                                     curl -s -H "Authorization: Bearer \${GITHUB_PAT}" \\
                                         -H "X-GitHub-Api-Version: 2022-11-28" \\
                                         -H "Accept: application/vnd.github.v3+json" \\
                                         https://api.github.com/repos/\${OWNER}/\${REPO}/pulls?state=open&base=main \\
-                                        | jq '.[0].number'
-                                """,
-                                returnStdout: true
-                            ).trim()
+                            | jq '.[0].number'
+                        """,
+                        returnStdout: true
+                    ).trim()
 
-                            if (pr_num == "null" || pr_num == "") {
-                                error "No open PR for merging into main."
-                            }
+                    if (pr_num == "null" || pr_num == "") {
+                        error "No open PR for merging into main."
+                    }
 
-                            env.PR_NUMBER = pr_num
+                    env.PR_NUMBER = pr_num
                         }
 
                         echo "Merging PR #${env.PR_NUMBER}..."
 
-                        sh """
+                    sh """
                             export OWNER=${OWNER}
                             export REPO=${REPO}
                             export PR_NUMBER=${env.PR_NUMBER}
@@ -381,8 +410,8 @@ EOF
                               -H "X-GitHub-Api-Version: 2022-11-28" \\
                               -H "Accept: application/vnd.github.v3+json" \\
                               https://api.github.com/repos/\${OWNER}/\${REPO}/pulls/\${PR_NUMBER}/merge \\
-                              -d '{"merge_method":"merge"}'
-                        """
+                          -d '{"merge_method":"merge"}'
+                    """
                     }
                 }
             }
