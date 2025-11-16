@@ -187,14 +187,9 @@ pipeline {
             when { expression { env.BRANCH_NAME == 'develop' } }
             steps {
                 script {
-                    // JMeter 실행 (서버에 설치된 JMeter 사용)
-                    // PATH에 jmeter가 없으면 /opt/jmeter/bin/jmeter 절대 경로 사용
+                    // JMeter 실행 (절대 경로 사용 - 가장 안전한 방식)
                     sh """
-                        if command -v jmeter &> /dev/null; then
-                            jmeter -n -t ${WORKSPACE}/loadtest.jmx -l ${WORKSPACE}/results.jtl
-                        else
-                            /opt/jmeter/bin/jmeter -n -t ${WORKSPACE}/loadtest.jmx -l ${WORKSPACE}/results.jtl
-                        fi
+                        /opt/jmeter/bin/jmeter -n -t ${WORKSPACE}/loadtest.jmx -l ${WORKSPACE}/results.jtl
                     """
                     
                     // p95 응답시간 계산 및 성능 Gate 체크
