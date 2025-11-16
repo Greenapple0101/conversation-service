@@ -187,11 +187,11 @@ pipeline {
             when { expression { env.BRANCH_NAME == 'develop' } }
             steps {
                 script {
-                    // JMeter 실행 (Apache 공식 이미지 사용)
+                    // JMeter 실행 (justb4/jmeter:5.4.3 - 안정적인 버전)
                     sh """
                         docker run --rm \
                           -v ${WORKSPACE}:/test \
-                          apache/jmeter:5.6.2 \
+                          justb4/jmeter:5.4.3 \
                           -n -t /test/loadtest.jmx -l /test/results.jtl
                     """
                     
