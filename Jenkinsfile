@@ -275,58 +275,60 @@ EOF
             when { expression { env.BRANCH_NAME == 'develop' } }
             steps {
                 script {
-                    // 기존 PR 확인
-                    def existing_pr = sh(
-                        script: """
-                            curl -s -H "Authorization: token ${GITHUB_PAT}" \
-                            https://api.github.com/repos/${OWNER}/${REPO}/pulls?state=open&base=main&head=${OWNER}:develop \
-                            | jq '.[0].number'
-                        """,
-                        returnStdout: true
-                    ).trim()
-
-                    if (existing_pr == "null" || existing_pr == "") {
-                        // PR이 없으면 생성
-                        echo "Creating PR from develop to main..."
-                        
-                        // JSON payload를 직접 curl로 전달 (Groovy 문자열 인터폴레이션 문제 완전 해결)
-                        sh """
-                            export GITHUB_PAT=${GITHUB_PAT}
-                            export OWNER=${OWNER}
-                            export REPO=${REPO}
-                            curl -s \\
-                              -X POST \\
-                              -H "Authorization: Bearer \${GITHUB_PAT}" \\
-                              -H "Accept: application/vnd.github.v3+json" \\
-                              https://api.github.com/repos/\${OWNER}/\${REPO}/pulls \\
-                              -d '{
-                                    "title": "Auto PR: develop → main",
-                                    "head": "develop",
-                                    "base": "main",
-                                    "body": "자동 생성된 PR입니다. Load Test 통과 후 자동 merge됩니다."
-                                  }' | tee pr.json
-                        """
-                        
-                        // PR 번호 추출 및 검증
-                        def pr_number = sh(
-                            script: '''
-                                PR_NUMBER=$(jq -r '.number' pr.json)
-                                echo "PR response: $PR_NUMBER"
-                                if [ "$PR_NUMBER" = "null" ] || [ -z "$PR_NUMBER" ]; then
-                                  echo "Failed to create PR."
-                                  exit 1
-                                fi
-                                echo $PR_NUMBER
-                            ''',
+                    withCredentials([string(credentialsId: 'healthy-real', variable: 'GITHUB_PAT')]) {
+                        // 기존 PR 확인
+                        def existing_pr = sh(
+                            script: """
+                                export OWNER=${OWNER}
+                                export REPO=${REPO}
+                                curl -s -H "Authorization: token \${GITHUB_PAT}" \\
+                                https://api.github.com/repos/\${OWNER}/\${REPO}/pulls?state=open&base=main&head=\${OWNER}:develop \\
+                                | jq '.[0].number'
+                            """,
                             returnStdout: true
                         ).trim()
-                        
-                        env.PR_NUMBER = pr_number
-                        echo "PR created: #${env.PR_NUMBER}"
-                    } else {
-                        // PR이 이미 있으면 기존 PR 번호 사용
-                        env.PR_NUMBER = existing_pr
-                        echo "PR already exists: #${env.PR_NUMBER}"
+
+                        if (existing_pr == "null" || existing_pr == "") {
+                            // PR이 없으면 생성
+                            echo "Creating PR from develop to main..."
+                            
+                            // withCredentials로 안전하게 토큰 전달, sh ''' ''' 형식으로 Groovy interpolation 방지
+                            sh """
+                                export OWNER=${OWNER}
+                                export REPO=${REPO}
+                                curl -s -X POST \\
+                                    -H "Authorization: token \${GITHUB_PAT}" \\
+                                    -H "Accept: application/vnd.github.v3+json" \\
+                                    https://api.github.com/repos/\${OWNER}/\${REPO}/pulls \\
+                                    -d '{
+                                        "title": "Auto PR: develop → main",
+                                        "head": "develop",
+                                        "base": "main",
+                                        "body": "자동 생성된 PR입니다. Load Test 통과 후 자동 merge됩니다."
+                                    }' | tee pr.json
+                            """
+                            
+                            // PR 번호 추출 및 검증
+                            def pr_number = sh(
+                                script: '''
+                                    PR_NUMBER=$(jq -r '.number' pr.json)
+                                    echo "PR response: $PR_NUMBER"
+                                    if [ "$PR_NUMBER" = "null" ] || [ -z "$PR_NUMBER" ]; then
+                                      echo "Failed to create PR."
+                                      exit 1
+                                    fi
+                                    echo $PR_NUMBER
+                                ''',
+                                returnStdout: true
+                            ).trim()
+                            
+                            env.PR_NUMBER = pr_number
+                            echo "PR created: #${env.PR_NUMBER}"
+                        } else {
+                            // PR이 이미 있으면 기존 PR 번호 사용
+                            env.PR_NUMBER = existing_pr
+                            echo "PR already exists: #${env.PR_NUMBER}"
+                        }
                     }
                 }
             }
