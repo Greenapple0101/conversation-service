@@ -139,15 +139,17 @@ pipeline {
             when { expression { env.BRANCH_NAME == 'develop' } }
             steps {
                 timeout(time: 10, unit: 'MINUTES') {
-                    script {
-                        try {
-                            def qg = waitForQualityGate()
-                            if (qg.status != 'OK') {
-                                error "Quality Gate failed: ${qg.status}"
+                    withSonarQubeEnv('sonarqube') {
+                        script {
+                            try {
+                                def qg = waitForQualityGate abortPipeline: true
+                                if (qg.status != 'OK') {
+                                    error "Quality Gate failed: ${qg.status}"
+                                }
+                            } catch (Exception e) {
+                                echo "Quality Gate check failed: ${e.getMessage()}"
+                                error "Quality Gate check failed: ${e.getMessage()}"
                             }
-                        } catch (Exception e) {
-                            echo "Quality Gate check failed: ${e.getMessage()}"
-                            error "Quality Gate check failed: ${e.getMessage()}"
                         }
                     }
                 }
