@@ -19,7 +19,7 @@ pipeline {
 
         SONAR_TOKEN = credentials('sonar-token')
         SONAR_HOST_URL = "http://13.211.124.66:9000"
-        OPENAI_API_KEY = credentials('openai')
+        OPENAI_API_KEY = credentials('open')
     }
 
     stages {
