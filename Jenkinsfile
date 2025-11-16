@@ -19,6 +19,7 @@ pipeline {
 
         SONAR_TOKEN = credentials('sonar-token')
         SONAR_HOST_URL = "http://13.211.124.66:9000"
+        OPENAI_API_KEY = credentials('openai')
     }
 
     stages {
@@ -175,7 +176,7 @@ pipeline {
                             gunzip -c image.tar.gz | docker load
                             docker stop dev-conv || true
                             docker rm dev-conv || true
-                            docker run -d -p 8000:8000 --name dev-conv ${IMAGE_NAME}:dev
+                            docker run -d -p 8000:8000 -e OPENAI_API_KEY=${OPENAI_API_KEY} --name dev-conv ${IMAGE_NAME}:dev
                         "
                     """
                 }
@@ -319,7 +320,7 @@ EOF
                             gunzip -c image.tar.gz | docker load
                             docker stop conversation || true
                             docker rm conversation || true
-                            docker run -d -p 8000:8000 --name conversation ${IMAGE_NAME}:latest
+                            docker run -d -p 8000:8000 -e OPENAI_API_KEY=${OPENAI_API_KEY} --name conversation ${IMAGE_NAME}:latest
                         "
                     """
                 }
