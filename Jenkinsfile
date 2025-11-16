@@ -291,10 +291,14 @@ EOF
                         
                         // JSON payload를 직접 curl로 전달 (Groovy 문자열 인터폴레이션 문제 완전 해결)
                         sh """
-                            curl -s -X POST \
-                              -H "Authorization: token ${GITHUB_PAT}" \
-                              -H "Accept: application/vnd.github.v3+json" \
-                              https://api.github.com/repos/${OWNER}/${REPO}/pulls \
+                            export GITHUB_PAT=${GITHUB_PAT}
+                            export OWNER=${OWNER}
+                            export REPO=${REPO}
+                            curl -s \\
+                              -X POST \\
+                              -H "Authorization: Bearer \${GITHUB_PAT}" \\
+                              -H "Accept: application/vnd.github.v3+json" \\
+                              https://api.github.com/repos/\${OWNER}/\${REPO}/pulls \\
                               -d '{
                                     "title": "Auto PR: develop → main",
                                     "head": "develop",
