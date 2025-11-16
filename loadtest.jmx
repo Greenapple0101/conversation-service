@@ -47,8 +47,8 @@
               </elementProp>
             </collectionProp>
           </elementProp>
-          <stringProp name="HTTPSampler.domain">${DEV_HOST}</stringProp>
-          <stringProp name="HTTPSampler.port">${DEV_PORT}</stringProp>
+          <stringProp name="HTTPSampler.domain">13.54.10.35</stringProp>
+          <stringProp name="HTTPSampler.port">8000</stringProp>
           <stringProp name="HTTPSampler.protocol">http</stringProp>
           <stringProp name="HTTPSampler.contentEncoding"></stringProp>
           <stringProp name="HTTPSampler.path">/ChatAI</stringProp>
