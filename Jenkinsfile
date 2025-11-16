@@ -2,11 +2,10 @@ pipeline {
     agent any
 
     environment {
-        OWNER       = "Greenapple0101"
+        OWNER       = "devops-healthyreal"
         REPO        = "conversation-service"
         GITHUB_REPO = "https://github.com/devops-healthyreal/conversation-service.git"
 
-        GITHUB_PAT  = credentials('healthy-real')
         IMAGE_NAME  = "conversation-conv"
 
         DEV_HOST = "13.54.10.35"
@@ -275,15 +274,17 @@ EOF
             when { expression { env.BRANCH_NAME == 'develop' } }
             steps {
                 script {
-                    withCredentials([string(credentialsId: 'healthy-real', variable: 'GITHUB_PAT')]) {
+                    withCredentials([string(credentialsId: 'github-pat', variable: 'GITHUB_PAT')]) {
                         // 기존 PR 확인
                         def existing_pr = sh(
                             script: """
                                 export OWNER=${OWNER}
                                 export REPO=${REPO}
-                                curl -s -H "Authorization: token \${GITHUB_PAT}" \\
-                                https://api.github.com/repos/\${OWNER}/\${REPO}/pulls?state=open&base=main&head=\${OWNER}:develop \\
-                                | jq '.[0].number'
+                                curl -s -H "Authorization: Bearer \${GITHUB_PAT}" \\
+                                    -H "X-GitHub-Api-Version: 2022-11-28" \\
+                                    -H "Accept: application/vnd.github.v3+json" \\
+                                    https://api.github.com/repos/\${OWNER}/\${REPO}/pulls?state=open&base=main&head=\${OWNER}:develop \\
+                                    | jq '.[0].number'
                             """,
                             returnStdout: true
                         ).trim()
@@ -297,7 +298,8 @@ EOF
                                 export OWNER=${OWNER}
                                 export REPO=${REPO}
                                 curl -s -X POST \\
-                                    -H "Authorization: token \${GITHUB_PAT}" \\
+                                    -H "Authorization: Bearer \${GITHUB_PAT}" \\
+                                    -H "X-GitHub-Api-Version: 2022-11-28" \\
                                     -H "Accept: application/vnd.github.v3+json" \\
                                     https://api.github.com/repos/\${OWNER}/\${REPO}/pulls \\
                                     -d '{
@@ -341,33 +343,43 @@ EOF
             when { expression { env.BRANCH_NAME == 'develop' } }
             steps {
                 script {
-                    // PR 번호 확인
-                    if (!env.PR_NUMBER) {
-                        def pr_num = sh(
-                            script: """
-                                curl -s -H "Authorization: token ${GITHUB_PAT}" \
-                                https://api.github.com/repos/${OWNER}/${REPO}/pulls?state=open&base=main \
-                                | jq '.[0].number'
-                            """,
-                            returnStdout: true
-                        ).trim()
+                    withCredentials([string(credentialsId: 'github-pat', variable: 'GITHUB_PAT')]) {
+                        // PR 번호 확인
+                        if (!env.PR_NUMBER) {
+                            def pr_num = sh(
+                                script: """
+                                    export OWNER=${OWNER}
+                                    export REPO=${REPO}
+                                    curl -s -H "Authorization: Bearer \${GITHUB_PAT}" \\
+                                        -H "X-GitHub-Api-Version: 2022-11-28" \\
+                                        -H "Accept: application/vnd.github.v3+json" \\
+                                        https://api.github.com/repos/\${OWNER}/\${REPO}/pulls?state=open&base=main \\
+                                        | jq '.[0].number'
+                                """,
+                                returnStdout: true
+                            ).trim()
 
-                        if (pr_num == "null" || pr_num == "") {
-                            error "No open PR for merging into main."
+                            if (pr_num == "null" || pr_num == "") {
+                                error "No open PR for merging into main."
+                            }
+
+                            env.PR_NUMBER = pr_num
                         }
 
-                        env.PR_NUMBER = pr_num
+                        echo "Merging PR #${env.PR_NUMBER}..."
+
+                        sh """
+                            export OWNER=${OWNER}
+                            export REPO=${REPO}
+                            export PR_NUMBER=${env.PR_NUMBER}
+                            curl -X PUT \\
+                              -H "Authorization: Bearer \${GITHUB_PAT}" \\
+                              -H "X-GitHub-Api-Version: 2022-11-28" \\
+                              -H "Accept: application/vnd.github.v3+json" \\
+                              https://api.github.com/repos/\${OWNER}/\${REPO}/pulls/\${PR_NUMBER}/merge \\
+                              -d '{"merge_method":"merge"}'
+                        """
                     }
-
-                    echo "Merging PR #${env.PR_NUMBER}..."
-
-                    sh """
-                        curl -X PUT \
-                          -H "Authorization: token ${GITHUB_PAT}" \
-                          -H "Accept: application/vnd.github.v3+json" \
-                          https://api.github.com/repos/${OWNER}/${REPO}/pulls/${PR_NUMBER}/merge \
-                          -d '{"merge_method":"merge"}'
-                    """
                 }
             }
         }
