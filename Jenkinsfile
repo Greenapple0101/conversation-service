@@ -189,6 +189,10 @@ pipeline {
             when { expression { env.BRANCH_NAME == 'develop' } }
             steps {
                 script {
+                    // 서버 준비 대기 (컨테이너가 완전히 시작될 때까지)
+                    echo "Waiting for DEV server to be ready..."
+                    sh "sleep 10"
+                    
                     // JMeter 실행 (절대 경로 사용 - 가장 안전한 방식)
                     sh """
                         /opt/jmeter/bin/jmeter -n -t ${WORKSPACE}/loadtest.jmx -l ${WORKSPACE}/results.jtl
@@ -197,53 +201,50 @@ pipeline {
                     // p95 응답시간 계산 및 성능 Gate 체크
                     def p95Threshold = 2000  // 2초 (밀리초)
                     
-                    def p95Script = """
-                        import csv
-                        import sys
-                        
-                        threshold = ${p95Threshold}
-                        response_times = []
-                        try:
-                            with open('results.jtl', 'r') as f:
-                                reader = csv.DictReader(f)
-                                for row in reader:
-                                    if row.get('elapsed') and row.get('success', '').lower() == 'true':
-                                        try:
-                                            response_times.append(int(float(row['elapsed'])))
-                                        except (ValueError, KeyError):
-                                            pass
-                            
-                            if not response_times:
-                                print("ERROR: No valid response times found")
-                                sys.exit(1)
-                            
-                            # p95 계산
-                            sorted_times = sorted(response_times)
-                            p95_index = int(len(sorted_times) * 0.95)
-                            p95_value = sorted_times[p95_index] if p95_index < len(sorted_times) else sorted_times[-1]
-                            
-                            print(f"Total requests: {len(response_times)}")
-                            print(f"p95 response time: {p95_value}ms")
-                            print(f"Threshold: {threshold}ms")
-                            
-                            if p95_value > threshold:
-                                print(f"FAILED: p95 ({p95_value}ms) exceeds threshold ({threshold}ms)")
-                                sys.exit(1)
-                            else:
-                                print(f"PASSED: p95 ({p95_value}ms) is within threshold ({threshold}ms)")
-                                sys.exit(0)
-                        except Exception as e:
-                            print(f"ERROR: {str(e)}")
-                            sys.exit(1)
-                    """
-                    
-                    // Python 스크립트 실행
+                    // Python 스크립트 실행 (3중 작은따옴표로 들여쓰기 문제 해결)
                     def result = sh(
-                        script: """
-                            python3 << 'PYTHON_SCRIPT'
-${p95Script}
-PYTHON_SCRIPT
-                        """,
+                        script: '''
+python3 << 'EOF'
+import csv
+import sys
+
+threshold = 2000
+response_times = []
+
+try:
+    with open('results.jtl', 'r') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            if row.get('elapsed') and row.get('success', '').lower() == 'true':
+                try:
+                    response_times.append(int(float(row['elapsed'])))
+                except (ValueError, KeyError):
+                    pass
+    
+    if not response_times:
+        print("ERROR: No valid response times found")
+        sys.exit(1)
+    
+    # p95 계산
+    sorted_times = sorted(response_times)
+    p95_index = int(len(sorted_times) * 0.95)
+    p95_value = sorted_times[p95_index] if p95_index < len(sorted_times) else sorted_times[-1]
+    
+    print(f"Total requests: {len(response_times)}")
+    print(f"p95 response time: {p95_value}ms")
+    print(f"Threshold: {threshold}ms")
+    
+    if p95_value > threshold:
+        print(f"FAILED: p95 ({p95_value}ms) exceeds threshold ({threshold}ms)")
+        sys.exit(1)
+    else:
+        print(f"PASSED: p95 ({p95_value}ms) is within threshold ({threshold}ms)")
+        sys.exit(0)
+except Exception as e:
+    print(f"ERROR: {str(e)}")
+    sys.exit(1)
+EOF
+                        ''',
                         returnStatus: true
                     )
                     
