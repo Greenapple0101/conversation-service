@@ -187,12 +187,14 @@ pipeline {
             when { expression { env.BRANCH_NAME == 'develop' } }
             steps {
                 script {
-                    // JMeter 실행 (justb4/jmeter:5.4.3 - 안정적인 버전)
+                    // JMeter 실행 (서버에 설치된 JMeter 사용)
+                    // PATH에 jmeter가 없으면 /opt/jmeter/bin/jmeter 절대 경로 사용
                     sh """
-                        docker run --rm \
-                          -v ${WORKSPACE}:/test \
-                          justb4/jmeter:5.4.3 \
-                          -n -t /test/loadtest.jmx -l /test/results.jtl
+                        if command -v jmeter &> /dev/null; then
+                            jmeter -n -t ${WORKSPACE}/loadtest.jmx -l ${WORKSPACE}/results.jtl
+                        else
+                            /opt/jmeter/bin/jmeter -n -t ${WORKSPACE}/loadtest.jmx -l ${WORKSPACE}/results.jtl
+                        fi
                     """
                     
                     // p95 응답시간 계산 및 성능 Gate 체크
