@@ -17,6 +17,10 @@ api.add_resource(TextEmotionDetection, '/diary')
 api.add_resource(CreateImage, "/CreateIm")
 api.add_resource(ChatAI, "/ChatAI")
 
+@app.route('/health')
+def health():
+    return {"status": "ok", "service": "conversation-service"}, 200
+
 if __name__ == '__main__':
     # app.run(debug=True)
     app.run(host='0.0.0.0', port=5000)
