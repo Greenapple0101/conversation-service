@@ -269,26 +269,90 @@ EOF
         }
 
         /* ============================================================
-         * 7) DEVELOP — Auto Merge to Main
+         * 7) DEVELOP — Create PR (develop → main)
          * ============================================================ */
-        stage('Auto Merge to Main') {
+        stage('Create PR') {
             when { expression { env.BRANCH_NAME == 'develop' } }
             steps {
                 script {
-                    def pr_num = sh(
+                    // 기존 PR 확인
+                    def existing_pr = sh(
                         script: """
                             curl -s -H "Authorization: token ${GITHUB_PAT}" \
-                            https://api.github.com/repos/${OWNER}/${REPO}/pulls?state=open&base=main \
+                            https://api.github.com/repos/${OWNER}/${REPO}/pulls?state=open&base=main&head=${OWNER}:develop \
                             | jq '.[0].number'
                         """,
                         returnStdout: true
                     ).trim()
 
-                    if (pr_num == "null" || pr_num == "") {
-                        error "No open PR for merging into main."
+                    if (existing_pr == "null" || existing_pr == "") {
+                        // PR이 없으면 생성
+                        echo "Creating PR from develop to main..."
+                        
+                        // JSON payload를 triple single quotes로 분리 (Groovy 문자열 인터폴레이션 방지)
+                        def prPayload = '''
+{
+  "title": "Auto PR: develop → main",
+  "head": "develop",
+  "base": "main",
+  "body": "자동 생성된 PR입니다. Load Test 통과 후 자동으로 merge됩니다."
+}
+'''
+                        
+                        def pr_response = sh(
+                            script: """
+                                curl -s -X POST \
+                                  -H "Authorization: token ${GITHUB_PAT}" \
+                                  -H "Accept: application/vnd.github.v3+json" \
+                                  https://api.github.com/repos/${OWNER}/${REPO}/pulls \
+                                  -d '${prPayload}' | jq -r '.number'
+                            """,
+                            returnStdout: true
+                        ).trim()
+                        
+                        echo "PR response: ${pr_response}"
+                        
+                        if (pr_response && pr_response != "null" && pr_response != "") {
+                            env.PR_NUMBER = pr_response
+                            echo "PR created: #${env.PR_NUMBER}"
+                        } else {
+                            error "Failed to create PR. Response: ${pr_response}"
+                        }
+                    } else {
+                        // PR이 이미 있으면 기존 PR 번호 사용
+                        env.PR_NUMBER = existing_pr
+                        echo "PR already exists: #${env.PR_NUMBER}"
+                    }
+                }
+            }
+        }
+
+        /* ============================================================
+         * 8) DEVELOP — Auto Merge to Main
+         * ============================================================ */
+        stage('Auto Merge to Main') {
+            when { expression { env.BRANCH_NAME == 'develop' } }
+            steps {
+                script {
+                    // PR 번호 확인
+                    if (!env.PR_NUMBER) {
+                        def pr_num = sh(
+                            script: """
+                                curl -s -H "Authorization: token ${GITHUB_PAT}" \
+                                https://api.github.com/repos/${OWNER}/${REPO}/pulls?state=open&base=main \
+                                | jq '.[0].number'
+                            """,
+                            returnStdout: true
+                        ).trim()
+
+                        if (pr_num == "null" || pr_num == "") {
+                            error "No open PR for merging into main."
+                        }
+
+                        env.PR_NUMBER = pr_num
                     }
 
-                    env.PR_NUMBER = pr_num
+                    echo "Merging PR #${env.PR_NUMBER}..."
 
                     sh """
                         curl -X PUT \
@@ -302,7 +366,7 @@ EOF
         }
 
         /* ============================================================
-         * 8) MAIN — PROD 배포
+         * 9) MAIN — PROD 배포
          * ============================================================ */
         stage('Deploy to PROD') {
             when { expression { env.BRANCH_NAME == 'main' } }
