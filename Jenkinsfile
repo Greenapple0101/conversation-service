@@ -193,9 +193,19 @@ pipeline {
                     echo "Waiting for DEV server to be ready..."
                     sh "sleep 10"
                     
+                    // JMX 파일의 IP를 환경변수로 동적 교체 (확실하게 올바른 서버 타겟)
+                    // 혹시 이전 버전의 잘못된 IP(13.211.124.66)가 있으면 모두 올바른 IP로 교체
+                    sh """
+                        # 잘못된 IP를 모두 올바른 IP로 교체
+                        sed -i.bak 's/13\\.211\\.124\\.66/${DEV_HOST}/g' ${WORKSPACE}/loadtest.jmx
+                        echo "JMX file updated: Target server = ${DEV_HOST}:8000"
+                        # 확인용 출력
+                        grep -n "HTTPSampler.domain" ${WORKSPACE}/loadtest.jmx || true
+                    """
+                    
                     // JMeter 실행 (절대 경로 사용 - 가장 안전한 방식)
                     sh """
-                        /opt/jmeter/bin/jmeter -n -t ${WORKSPACE}/loadtest.jmx -l ${WORKSPACE}/results.jtl
+                        /opt/jmeter/bin/jmeter -n -t ${WORKSPACE}/loadtest.jmx -l ${WORKSPACE}/results.jtl -JDEV_HOST=${DEV_HOST} -JDEV_PORT=8000
                     """
                     
                     // p95 응답시간 계산 및 성능 Gate 체크
