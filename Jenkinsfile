@@ -310,19 +310,23 @@ EOF
                                     }' | tee pr.json
                             """
                             
-                            // PR 번호 추출 및 검증
+                            // PR 번호 추출 및 검증 (메시지는 stderr로, 값만 stdout으로)
                             def pr_number = sh(
                                 script: '''
                                     PR_NUMBER=$(jq -r '.number' pr.json)
-                                    echo "PR response: $PR_NUMBER"
                                     if [ "$PR_NUMBER" = "null" ] || [ -z "$PR_NUMBER" ]; then
-                                      echo "Failed to create PR."
+                                      echo "Failed to create PR." >&2
                                       exit 1
                                     fi
+                                    echo "PR_NUMBER=$PR_NUMBER" >&2
                                     echo $PR_NUMBER
                                 ''',
                                 returnStdout: true
                             ).trim()
+                            
+                            if (!pr_number || pr_number.isEmpty()) {
+                                error "Failed to extract PR number from response"
+                            }
                             
                             env.PR_NUMBER = pr_number
                             echo "PR created: #${env.PR_NUMBER}"
