@@ -25,7 +25,7 @@ pipeline {
             }
         }
 
-        /* ✅ Sonar는 develop / main / PR 에서만 */
+        /* ✅ SonarCloud 분석 (withSonarQubeEnv 필수) */
         stage('SonarCloud Analysis') {
             when {
                 anyOf {
@@ -35,19 +35,22 @@ pipeline {
                 }
             }
             steps {
-                script {
-                    def scannerHome = tool 'sonar-scanner'
-                    sh """
-                        ${scannerHome}/bin/sonar-scanner \
-                          -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
-                          -Dsonar.organization=${SONAR_ORG} \
-                          -Dsonar.host.url=https://sonarcloud.io \
-                          -Dsonar.login=${SONAR_TOKEN}
-                    """
+                withSonarQubeEnv('SonarCloud') {   // ✅ Jenkins에 등록된 Sonar 서버 이름
+                    script {
+                        def scannerHome = tool 'sonar-scanner'
+                        sh """
+                            ${scannerHome}/bin/sonar-scanner \
+                              -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
+                              -Dsonar.organization=${SONAR_ORG} \
+                              -Dsonar.host.url=https://sonarcloud.io \
+                              -Dsonar.token=${SONAR_TOKEN}
+                        """
+                    }
                 }
             }
         }
 
+        /* ✅ 품질 게이트 (이제 정상 동작함) */
         stage('Quality Gate') {
             when {
                 anyOf {
@@ -63,7 +66,7 @@ pipeline {
             }
         }
 
-        /* ✅ Docker Build: develop & main */
+        /* ✅ develop & main에서만 이미지 빌드 */
         stage('Build Docker Image') {
             when {
                 anyOf {
@@ -76,7 +79,6 @@ pipeline {
             }
         }
 
-        /* ✅ Docker Push: develop & main */
         stage('Login & Push Docker Image') {
             when {
                 anyOf {
@@ -92,7 +94,7 @@ pipeline {
             }
         }
 
-        /* ✅ ✅ ✅ 운영 배포는 main에서만 */
+        /* ✅ 운영 배포는 main에서만 */
         stage('Deploy to k3s Cluster') {
             when {
                 expression { env.GIT_BRANCH?.contains('main') }
@@ -113,10 +115,10 @@ pipeline {
 
     post {
         success {
-            echo "🎉 CI 성공 (운영 배포는 main일 때만 실행됨)"
+            echo "🎉 Sonar 품질게이트 통과 + CI/CD 성공"
         }
         failure {
-            echo "❌ 품질 게이트 또는 빌드 실패"
+            echo "❌ Sonar 품질 실패 또는 파이프라인 오류"
         }
     }
 }
