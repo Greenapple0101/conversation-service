@@ -3,8 +3,6 @@ pipeline {
 
     environment {
         // ✅ 환경 변수 정의
-        DOCKERHUB_CREDENTIALS = credentials('dockerhub-credentials')  // 젠킨스에 등록된 DockerHub ID/PW
-        
         DOCKER_IMAGE = "devops-healthyreal/conversation"
         
         DEPLOY_USER = "ubuntu"
@@ -33,10 +31,12 @@ pipeline {
         stage('Login & Push Docker Image') {
             steps {
                 echo "🚀 DockerHub 로그인 및 이미지 푸시"
-                sh '''
-                echo $DOCKERHUB_CREDENTIALS_PSW | docker login -u devops-healthyreal --password-stdin
-                docker push ${DOCKER_IMAGE}:latest
-                '''
+                withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                    sh '''
+                    echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
+                    docker push ${DOCKER_IMAGE}:latest
+                    '''
+                }
             }
         }
 
