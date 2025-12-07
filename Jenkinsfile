@@ -201,15 +201,15 @@ pipeline {
                     echo "🚀 PR #${prNumber} squash merge 실행"
 
                     def mergeResponse = sh(
-                        script: """
+                        script: '''
                         curl -s -X PUT \
-                          -H "Authorization: token ${GITHUB_TOKEN}" \
+                          -H "Authorization: token ''' + GITHUB_TOKEN + '''" \
                           -H "Accept: application/vnd.github+json" \
-                          https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/pulls/${prNumber}/merge \
+                          https://api.github.com/repos/''' + GITHUB_OWNER + '''/''' + GITHUB_REPO + '''/pulls/''' + prNumber + '''/merge \
                           -d '{
                             "merge_method": "squash"
                           }'
-                        """,
+                        ''',
                         returnStdout: true
                     ).trim()
 
