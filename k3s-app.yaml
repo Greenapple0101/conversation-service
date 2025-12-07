@@ -19,7 +19,7 @@ spec:
     spec:
       containers:
         - name: conversation-container
-          image: devops-healthyreal/conversation:latest   # ✅ Jenkins에서 push한 Docker 이미지
+          image: yorange50/conversation:latest   # ✅ Jenkins에서 push한 Docker 이미지
           imagePullPolicy: Always
           ports:
             - containerPort: 8000              # Flask 내부 포트 (Gunicorn 바인드 포트와 동일)
