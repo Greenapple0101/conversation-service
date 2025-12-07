@@ -126,6 +126,45 @@ pipeline {
         }
 
         /* ============================================================
+         * ✅ 4️⃣ develop → main 자동 MERGE
+         * ============================================================ */
+        stage('Auto Merge PR (develop → main)') {
+            when {
+                expression { env.GIT_BRANCH?.contains('develop') }
+            }
+            steps {
+                script {
+                    echo "🔍 PR 번호 조회"
+
+                    def prNumber = sh(
+                        script: """
+                        curl -s -H "Authorization: token ${GITHUB_TOKEN}" \
+                        https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/pulls \
+                        | jq -r '.[] | select(.head.ref=="develop" and .base.ref=="main") | .number'
+                        """,
+                        returnStdout: true
+                    ).trim()
+
+                    if (prNumber) {
+                        echo "✅ PR #${prNumber} 자동 머지 시도"
+
+                        sh """
+                        curl -X PUT \
+                          -H "Authorization: token ${GITHUB_TOKEN}" \
+                          -H "Accept: application/vnd.github+json" \
+                          https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/pulls/${prNumber}/merge \
+                          -d '{
+                            "merge_method": "squash"
+                          }'
+                        """
+                    } else {
+                        echo "⚠️ 머지할 PR이 없음"
+                    }
+                }
+            }
+        }
+
+        /* ============================================================
          * 5️⃣ Docker Build (develop & main만)
          * ============================================================ */
         stage('Build Docker Image') {
