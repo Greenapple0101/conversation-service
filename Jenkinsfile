@@ -53,8 +53,8 @@ pipeline {
         stage('Quality Gate') {
             when {
                 anyOf {
-                    expression { env.GIT_BRANCH == 'origin/develop' || env.GIT_BRANCH == 'develop' }
-                    expression { env.GIT_BRANCH == 'origin/main' || env.GIT_BRANCH == 'main' }
+                    expression { env.GIT_BRANCH?.contains('develop') }
+                    expression { env.GIT_BRANCH?.contains('main') }
                     changeRequest()
                 }
             }
@@ -70,7 +70,7 @@ pipeline {
         /* ✅ develop → main PR 자동 생성 */
         stage('Auto Create PR (develop → main)') {
             when {
-                expression { env.GIT_BRANCH == 'origin/develop' || env.GIT_BRANCH == 'develop' }
+                expression { env.GIT_BRANCH?.contains('develop') }
             }
             steps {
                 sh """
@@ -91,8 +91,8 @@ pipeline {
         stage('Build Docker Image') {
             when {
                 anyOf {
-                    expression { env.GIT_BRANCH == 'origin/develop' || env.GIT_BRANCH == 'develop' }
-                    expression { env.GIT_BRANCH == 'origin/main' || env.GIT_BRANCH == 'main' }
+                    expression { env.GIT_BRANCH?.contains('develop') }
+                    expression { env.GIT_BRANCH?.contains('main') }
                 }
             }
             steps {
@@ -103,8 +103,8 @@ pipeline {
         stage('Login & Push Docker Image') {
             when {
                 anyOf {
-                    expression { env.GIT_BRANCH == 'origin/develop' || env.GIT_BRANCH == 'develop' }
-                    expression { env.GIT_BRANCH == 'origin/main' || env.GIT_BRANCH == 'main' }
+                    expression { env.GIT_BRANCH?.contains('develop') }
+                    expression { env.GIT_BRANCH?.contains('main') }
                 }
             }
             steps {
@@ -118,7 +118,7 @@ pipeline {
         /* ✅ main 만 운영 배포 */
         stage('Deploy to k3s Cluster') {
             when {
-                expression { env.GIT_BRANCH == 'origin/main' || env.GIT_BRANCH == 'main' }
+                expression { env.GIT_BRANCH?.contains('main') }
             }
             steps {
                 sshagent(credentials: ['ubuntu']) {
