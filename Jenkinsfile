@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         /* ✅ GitHub */
-        GITHUB_TOKEN = credentials('github-token')
+        GITHUB_TOKEN = credentials('healthy-real')
         GITHUB_OWNER = "devops-healthyreal"
         GITHUB_REPO  = "conversation-service"
         BASE_BRANCH  = "main"
