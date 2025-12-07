@@ -175,70 +175,6 @@ pipeline {
                                 "base": "''' + BASE_BRANCH + '''",
                                 "body": "✅ Jenkins 자동 생성 PR"
                               }'
-
-                    if (prList == "[]" || prList == "") {
-                        echo "✅ PR 없음 → 자동 생성"
-                        
-                        sh '''
-                        curl -s -X POST \
-                          -H "Authorization: token ''' + GITHUB_TOKEN + '''" \
-                          -H "Accept: application/vnd.github+json" \
-                          https://api.github.com/repos/''' + GITHUB_OWNER + '''/''' + GITHUB_REPO + '''/pulls \
-                          -d '{
-                            "title": "🚀 develop → main 자동 PR",
-                            "head": "''' + HEAD_BRANCH + '''",
-                            "base": "''' + BASE_BRANCH + '''",
-                            "body": "✅ Jenkins 자동 생성 PR"
-                          }'
-                        '''
-                    } else {
-                        echo "⚠️ 이미 PR 존재 → 생성 스킵"
-                    }
-                }
-            }
-        }
-
-        /* ============================================================
-         * ✅ 4️⃣ develop → main 자동 MERGE
-         * ============================================================ */
-        stage('Auto Merge PR (develop → main)') {
-            when {
-                anyOf {
-                    expression { env.BRANCH_NAME == 'develop' }
-                    expression { env.GIT_BRANCH?.contains('develop') }
-                }
-            }
-            steps {
-                script {
-                    echo "🔍 PR 번호 조회"
-
-                    def prNumber = sh(
-                        script: '''
-                        curl -s -H "Authorization: token ''' + GITHUB_TOKEN + '''" \
-                        https://api.github.com/repos/''' + GITHUB_OWNER + '''/''' + GITHUB_REPO + '''/pulls \
-                        | jq -r '.[] | select(.head.ref=="develop" and .base.ref=="main") | .number'
-                        ''',
-                        returnStdout: true
-                    ).trim()
-
-                    if (!prNumber) {
-                        echo "⚠️ 머지할 PR이 없음"
-                        return
-                    }
-
-                    echo "✅ PR #${prNumber} 발견 → mergeable 상태 대기"
-
-                    // ✅ mergeable 계산 완료될 때까지 대기 (최대 5회, 각 5초)
-                    def mergeable = "null"
-                    for (int i = 0; i < 5; i++) {
-                        sleep 5
-
-                        mergeable = sh(
-                            script: '''
-                            curl -s -H "Authorization: token ''' + GITHUB_TOKEN + '''" \
-                            https://api.github.com/repos/''' + GITHUB_OWNER + '''/''' + GITHUB_REPO + '''/pulls/''' + prNumber + ''' \
-                            | jq -r '.mergeable'
-
                             ''',
                             returnStdout: true
                         ).trim()
@@ -256,68 +192,6 @@ pipeline {
                             echo "응답: ${response}"
                         }
                     }
-
-
-                    if (mergeable != "true") {
-                        error "❌ PR이 mergeable 상태가 아님 (현재: ${mergeable}) → 자동 머지 중단"
-                    }
-
-                    echo "🚀 PR #${prNumber} squash merge 실행"
-
-                    def mergeResponse = sh(
-                        script: '''
-                        curl -s -X PUT \
-                          -H "Authorization: token ''' + GITHUB_TOKEN + '''" \
-                          -H "Accept: application/vnd.github+json" \
-                          https://api.github.com/repos/''' + GITHUB_OWNER + '''/''' + GITHUB_REPO + '''/pulls/''' + prNumber + '''/merge \
-                          -d '{
-                            "merge_method": "squash"
-                          }'
-                        ''',
-                        returnStdout: true
-                    ).trim()
-
-                    echo "✅ PR #${prNumber} 머지 완료"
-                    echo "머지 응답: ${mergeResponse}"
-
-                    // ✅ PR 머지 후 main 브랜치 최신화 대기 (최대 10초)
-                    echo "⏳ main 브랜치 최신화 대기 중..."
-                    sleep 10
-                    
-                    // ✅ 근본 원인 해결: PR 머지 후 develop 브랜치를 main과 동기화 (충돌 방지)
-                    echo "🔄 develop 브랜치를 main과 동기화하여 다음 PR 충돌 방지"
-                    script {
-                        // main 브랜치의 최신 SHA 가져오기
-                        def mainSha = sh(
-                            script: '''
-                            curl -s -H "Authorization: token ''' + GITHUB_TOKEN + '''" \
-                            https://api.github.com/repos/''' + GITHUB_OWNER + '''/''' + GITHUB_REPO + '''/git/refs/heads/''' + BASE_BRANCH + '''
-                            | jq -r '.object.sha'
-                            ''',
-                            returnStdout: true
-                        ).trim()
-                        
-                        if (mainSha && mainSha != "null") {
-                            echo "✅ main 브랜치 SHA: ${mainSha}"
-                            
-                            // develop 브랜치를 main과 동기화 (force update)
-                            sh '''
-                            curl -X PATCH \
-                              -H "Authorization: token ''' + GITHUB_TOKEN + '''" \
-                              -H "Accept: application/vnd.github+json" \
-                              https://api.github.com/repos/''' + GITHUB_OWNER + '''/''' + GITHUB_REPO + '''/git/refs/heads/''' + HEAD_BRANCH + ''' \
-                              -d '{
-                                "sha": "''' + mainSha + '''",
-                                "force": true
-                              }'
-                            '''
-                            
-                            echo "✅ develop 브랜치가 main과 동기화됨 → 다음 PR 충돌 없음"
-                        } else {
-                            echo "⚠️ main 브랜치 SHA를 가져올 수 없음 → 동기화 스킵"
-                        }
-                    }
-
                 }
             }
         }
