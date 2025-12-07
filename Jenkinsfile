@@ -1,5 +1,6 @@
 // ✅ CI/CD Pipeline for conversation-service
 // Jenkins 노드 스케줄링 및 웹훅 테스트 (develop 브랜치)
+// PR 충돌 방지 및 자동 해결 로직 포함
 pipeline {
     agent any
 
