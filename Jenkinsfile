@@ -1,6 +1,7 @@
 // ✅ CI/CD Pipeline for conversation-service
-// Jenkins 노드 스케줄링 및 웹훅 테스트 (develop 브랜치)
-// PR 충돌 방지 및 자동 해결 로직 포함
+// YAML 기반 배포 (IaC 방식)
+// develop 브랜치: SonarCloud 검사 → PR 생성
+// main 브랜치: Docker 빌드/푸시 → k3s 배포
 pipeline {
     agent any
 
