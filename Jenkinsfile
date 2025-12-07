@@ -34,6 +34,17 @@ pipeline {
             steps {
                 echo "📦 GitHub 소스 체크아웃"
                 checkout scm
+                script {
+                    if (env.GIT_BRANCH) {
+                        env.BRANCH_NAME = env.GIT_BRANCH.replace("origin/", "")
+                    } else {
+                        env.BRANCH_NAME = sh(
+                            script: "git rev-parse --abbrev-ref HEAD",
+                            returnStdout: true
+                        ).trim()
+                    }
+                    echo "Detected Branch: ${env.BRANCH_NAME}"
+                }
             }
         }
 
@@ -43,8 +54,8 @@ pipeline {
         stage('SonarCloud Analysis') {
             when {
                 anyOf {
-                    expression { env.GIT_BRANCH?.contains('develop') }
-                    expression { env.GIT_BRANCH?.contains('main') }
+                    expression { env.BRANCH_NAME == 'develop' }
+                    expression { env.BRANCH_NAME == 'main' }
                     changeRequest()
                 }
             }
@@ -70,8 +81,8 @@ pipeline {
         stage('Quality Gate') {
             when {
                 anyOf {
-                    expression { env.GIT_BRANCH?.contains('develop') }
-                    expression { env.GIT_BRANCH?.contains('main') }
+                    expression { env.BRANCH_NAME == 'develop' }
+                    expression { env.BRANCH_NAME == 'main' }
                     changeRequest()
                 }
             }
@@ -89,33 +100,33 @@ pipeline {
          * ============================================================ */
         stage('Auto Create PR (develop → main)') {
             when {
-                expression { env.GIT_BRANCH?.contains('develop') }
+                expression { env.BRANCH_NAME == 'develop' }
             }
             steps {
                 script {
                     echo "🔍 기존 PR 존재 여부 확인"
 
-                    def prCheck = sh(
+                    def prList = sh(
                         script: """
                         curl -s -H "Authorization: token ${GITHUB_TOKEN}" \
-                        "https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/pulls?head=${GITHUB_OWNER}:${HEAD_BRANCH}&base=${BASE_BRANCH}"
+                        https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/pulls?head=${GITHUB_OWNER}:${HEAD_BRANCH}&base=${BASE_BRANCH}&state=open
                         """,
                         returnStdout: true
                     ).trim()
 
-                    if (prCheck == "[]" || prCheck == "") {
-                        echo "✅ PR 없음 → 새 PR 생성"
+                    if (prList == "[]" || prList == "") {
+                        echo "✅ PR 없음 → 자동 생성"
 
                         sh """
-                        curl -X POST \
+                        curl -s -X POST \
                           -H "Authorization: token ${GITHUB_TOKEN}" \
-                          -H "Accept: application/vnd.github.v3+json" \
+                          -H "Accept: application/vnd.github+json" \
                           https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/pulls \
                           -d '{
                             "title": "🚀 develop → main 자동 PR",
                             "head": "${HEAD_BRANCH}",
                             "base": "${BASE_BRANCH}",
-                            "body": "✅ Jenkins 자동 생성 PR\\n✅ Sonar Quality Gate 통과됨"
+                            "body": "✅ Jenkins 자동 생성 PR"
                           }'
                         """
                     } else {
@@ -130,7 +141,7 @@ pipeline {
          * ============================================================ */
         stage('Auto Merge PR (develop → main)') {
             when {
-                expression { env.GIT_BRANCH?.contains('develop') }
+                expression { env.BRANCH_NAME == 'develop' }
             }
             steps {
                 script {
@@ -146,19 +157,17 @@ pipeline {
                     ).trim()
 
                     if (prNumber) {
-                        echo "✅ PR #${prNumber} 자동 머지 시도"
+                        echo "✅ PR #${prNumber} 자동 머지 실행"
 
                         sh """
                         curl -X PUT \
                           -H "Authorization: token ${GITHUB_TOKEN}" \
                           -H "Accept: application/vnd.github+json" \
                           https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/pulls/${prNumber}/merge \
-                          -d '{
-                            "merge_method": "squash"
-                          }'
+                          -d '{ "merge_method": "squash" }'
                         """
                     } else {
-                        echo "⚠️ 머지할 PR이 없음"
+                        echo "⚠️ 머지할 PR 없음"
                     }
                 }
             }
@@ -170,8 +179,8 @@ pipeline {
         stage('Build Docker Image') {
             when {
                 anyOf {
-                    expression { env.GIT_BRANCH?.contains('develop') }
-                    expression { env.GIT_BRANCH?.contains('main') }
+                    expression { env.BRANCH_NAME == 'develop' }
+                    expression { env.BRANCH_NAME == 'main' }
                 }
             }
             steps {
@@ -186,8 +195,8 @@ pipeline {
         stage('Login & Push Docker Image') {
             when {
                 anyOf {
-                    expression { env.GIT_BRANCH?.contains('develop') }
-                    expression { env.GIT_BRANCH?.contains('main') }
+                    expression { env.BRANCH_NAME == 'develop' }
+                    expression { env.BRANCH_NAME == 'main' }
                 }
             }
             steps {
@@ -211,7 +220,7 @@ pipeline {
          * ============================================================ */
         stage('Deploy to k3s Cluster') {
             when {
-                expression { env.GIT_BRANCH?.contains('main') }
+                expression { env.BRANCH_NAME == 'main' }
             }
             steps {
                 sshagent(credentials: ['ubuntu']) {
