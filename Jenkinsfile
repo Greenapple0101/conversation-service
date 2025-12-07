@@ -226,14 +226,12 @@ pipeline {
                         // main 브랜치의 최신 SHA 가져오기
                         def mainSha = sh(
                             script: '''
-                            curl -s -H "Authorization: token ''' + GITHUB_TOKEN + '''" \
-                            https://api.github.com/repos/''' + GITHUB_OWNER + '''/''' + GITHUB_REPO + '''/git/refs/heads/''' + BASE_BRANCH + '''
-                            | jq -r '.object.sha'
+                            curl -s -H "Authorization: token ''' + GITHUB_TOKEN + '''" https://api.github.com/repos/''' + GITHUB_OWNER + '''/''' + GITHUB_REPO + '''/git/refs/heads/''' + BASE_BRANCH + ''' | jq -r '.object.sha'
                             ''',
                             returnStdout: true
                         ).trim()
                         
-                        if (mainSha && mainSha != "null") {
+                        if (mainSha && mainSha != "null" && mainSha != "") {
                             echo "✅ main 브랜치 SHA: ${mainSha}"
                             
                             // develop 브랜치를 main과 동기화 (force update)
