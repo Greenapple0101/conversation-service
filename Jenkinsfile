@@ -219,6 +219,40 @@ pipeline {
                     // ✅ PR 머지 후 main 브랜치 최신화 대기 (최대 10초)
                     echo "⏳ main 브랜치 최신화 대기 중..."
                     sleep 10
+                    
+                    // ✅ 근본 원인 해결: PR 머지 후 develop 브랜치를 main과 동기화 (충돌 방지)
+                    echo "🔄 develop 브랜치를 main과 동기화하여 다음 PR 충돌 방지"
+                    script {
+                        // main 브랜치의 최신 SHA 가져오기
+                        def mainSha = sh(
+                            script: '''
+                            curl -s -H "Authorization: token ''' + GITHUB_TOKEN + '''" \
+                            https://api.github.com/repos/''' + GITHUB_OWNER + '''/''' + GITHUB_REPO + '''/git/refs/heads/''' + BASE_BRANCH + '''
+                            | jq -r '.object.sha'
+                            ''',
+                            returnStdout: true
+                        ).trim()
+                        
+                        if (mainSha && mainSha != "null") {
+                            echo "✅ main 브랜치 SHA: ${mainSha}"
+                            
+                            // develop 브랜치를 main과 동기화 (force update)
+                            sh '''
+                            curl -X PATCH \
+                              -H "Authorization: token ''' + GITHUB_TOKEN + '''" \
+                              -H "Accept: application/vnd.github+json" \
+                              https://api.github.com/repos/''' + GITHUB_OWNER + '''/''' + GITHUB_REPO + '''/git/refs/heads/''' + HEAD_BRANCH + ''' \
+                              -d '{
+                                "sha": "''' + mainSha + '''",
+                                "force": true
+                              }'
+                            '''
+                            
+                            echo "✅ develop 브랜치가 main과 동기화됨 → 다음 PR 충돌 없음"
+                        } else {
+                            echo "⚠️ main 브랜치 SHA를 가져올 수 없음 → 동기화 스킵"
+                        }
+                    }
                 }
             }
         }
