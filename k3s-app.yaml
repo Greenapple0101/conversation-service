@@ -1,5 +1,6 @@
 # ------------------------------------------
 # 1️⃣ Conversation Service Deployment
+# 포트 5000, Health Check /health 엔드포인트 사용
 # ------------------------------------------
 apiVersion: apps/v1
 kind: Deployment
