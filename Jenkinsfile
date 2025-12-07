@@ -30,20 +30,19 @@ pipeline {
         stage('SonarCloud Analysis') {
             when {
                 anyOf {
-                    expression { env.GIT_BRANCH == 'origin/develop' || env.GIT_BRANCH == 'develop' }
-                    expression { env.GIT_BRANCH == 'origin/main' || env.GIT_BRANCH == 'main' }
+                    expression { env.GIT_BRANCH?.contains('develop') }
+                    expression { env.GIT_BRANCH?.contains('main') }
                     changeRequest()
                 }
             }
             steps {
                 withSonarQubeEnv('sonarqube') {
                     script {
-                        def scannerHome = tool 'sonar-scanner'
+                        def scannerHome = tool 'sonar-scanner'   // ✅ Jenkins Tool 경로
                         sh """
                             ${scannerHome}/bin/sonar-scanner \
                               -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
                               -Dsonar.organization=${SONAR_ORG} \
-                              -Dsonar.host.url=https://sonarcloud.io \
                               -Dsonar.token=${SONAR_TOKEN}
                         """
                     }
