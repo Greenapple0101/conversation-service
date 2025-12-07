@@ -20,6 +20,7 @@ pipeline {
 
         stage('Checkout') {
             steps {
+                echo "📦 GitHub에서 소스코드 가져오기"
                 checkout scm
             }
         }
