@@ -1,5 +1,5 @@
 // ✅ CI/CD Pipeline for conversation-service
-// Jenkins 노드 스케줄링 확인용
+// Jenkins 노드 스케줄링 및 웹훅 테스트
 pipeline {
     agent any
 
