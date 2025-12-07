@@ -1,4 +1,4 @@
-// ✅ CI/CD Pipeline for conversation-service
+// CI/CD Pipeline for conversation-service
 pipeline {
     agent any
 
@@ -11,7 +11,6 @@ pipeline {
         HEAD_BRANCH  = "develop"
 
         /* ✅ Docker */
-        DOCKERHUB = credentials('dockerhub-credentials')
         DOCKER_IMAGE = "yorange50/conversation"
 
         /* ✅ Sonar */
@@ -153,10 +152,18 @@ pipeline {
                 }
             }
             steps {
-                sh """
-                echo ${DOCKERHUB_PSW} | docker login -u ${DOCKERHUB_USR} --password-stdin
-                docker push ${DOCKER_IMAGE}:latest
-                """
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'dockerhub-credentials',
+                        usernameVariable: 'DOCKERHUB_USR',
+                        passwordVariable: 'DOCKERHUB_PSW'
+                    )
+                ]) {
+                    sh '''
+                    echo $DOCKERHUB_PSW | docker login -u $DOCKERHUB_USR --password-stdin
+                    docker push ${DOCKER_IMAGE}:latest
+                    '''
+                }
             }
         }
 
