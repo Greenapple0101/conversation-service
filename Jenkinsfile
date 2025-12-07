@@ -37,14 +37,15 @@ pipeline {
                 checkout scm
                 script {
                     if (env.GIT_BRANCH) {
-                        env.BRANCH_NAME = env.GIT_BRANCH.replace("origin/", "")
+                        env.BRANCH_NAME = env.GIT_BRANCH.replace("origin/", "").replace("refs/heads/", "")
                     } else {
                         env.BRANCH_NAME = sh(
                             script: "git rev-parse --abbrev-ref HEAD",
                             returnStdout: true
                         ).trim()
                     }
-                    echo "Detected Branch: ${env.BRANCH_NAME}"
+                    echo "🔍 GIT_BRANCH: ${env.GIT_BRANCH}"
+                    echo "✅ Detected Branch: ${env.BRANCH_NAME}"
                 }
             }
         }
@@ -101,7 +102,10 @@ pipeline {
          * ============================================================ */
         stage('Auto Create PR (develop → main)') {
             when {
-                expression { env.BRANCH_NAME == 'develop' }
+                anyOf {
+                    expression { env.BRANCH_NAME == 'develop' }
+                    expression { env.GIT_BRANCH?.contains('develop') }
+                }
             }
             steps {
                 script {
@@ -142,7 +146,10 @@ pipeline {
          * ============================================================ */
         stage('Auto Merge PR (develop → main)') {
             when {
-                expression { env.BRANCH_NAME == 'develop' }
+                anyOf {
+                    expression { env.BRANCH_NAME == 'develop' }
+                    expression { env.GIT_BRANCH?.contains('develop') }
+                }
             }
             steps {
                 script {
