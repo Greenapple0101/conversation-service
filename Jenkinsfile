@@ -131,23 +131,65 @@ pipeline {
                         returnStdout: true
                     ).trim()
 
-                    if (prList == "[]" || prList == "") {
+                    echo "PR 조회 결과: ${prList}"
+
+                    // PR 목록 파싱하여 실제 PR 존재 여부 확인
+                    def prExists = false
+                    if (prList && prList != "[]" && prList != "") {
+                        try {
+                            def prCount = sh(
+                                script: '''
+                                echo ''' + prList + ''' | jq '. | length'
+                                ''',
+                                returnStdout: true
+                            ).trim()
+                            
+                            if (prCount && prCount != "0" && prCount != "") {
+                                prExists = true
+                                def prNumber = sh(
+                                    script: '''
+                                    echo ''' + prList + ''' | jq -r '.[0].number'
+                                    ''',
+                                    returnStdout: true
+                                ).trim()
+                                echo "✅ 이미 PR #${prNumber} 존재 → 생성 스킵"
+                            }
+                        } catch (Exception e) {
+                            echo "⚠️ PR 목록 파싱 실패, 직접 확인 시도"
+                        }
+                    }
+
+                    if (!prExists) {
                         echo "✅ PR 없음 → 자동 생성"
                         
-                        sh '''
-                        curl -s -X POST \
-                          -H "Authorization: token ''' + GITHUB_TOKEN + '''" \
-                          -H "Accept: application/vnd.github+json" \
-                          https://api.github.com/repos/''' + GITHUB_OWNER + '''/''' + GITHUB_REPO + '''/pulls \
-                          -d '{
-                            "title": "🚀 develop → main 자동 PR",
-                            "head": "''' + HEAD_BRANCH + '''",
-                            "base": "''' + BASE_BRANCH + '''",
-                            "body": "✅ Jenkins 자동 생성 PR"
-                          }'
-                        '''
-                    } else {
-                        echo "⚠️ 이미 PR 존재 → 생성 스킵"
+                        def createResult = sh(
+                            script: '''
+                            curl -s -w "\\nHTTP_CODE:%{http_code}" -X POST \
+                              -H "Authorization: token ''' + GITHUB_TOKEN + '''" \
+                              -H "Accept: application/vnd.github+json" \
+                              https://api.github.com/repos/''' + GITHUB_OWNER + '''/''' + GITHUB_REPO + '''/pulls \
+                              -d '{
+                                "title": "🚀 develop → main 자동 PR",
+                                "head": "''' + HEAD_BRANCH + '''",
+                                "base": "''' + BASE_BRANCH + '''",
+                                "body": "✅ Jenkins 자동 생성 PR"
+                              }'
+                            ''',
+                            returnStdout: true
+                        ).trim()
+
+                        def httpCode = createResult.split("HTTP_CODE:")[1]
+                        def response = createResult.split("HTTP_CODE:")[0]
+
+                        if (httpCode == "201") {
+                            echo "✅ PR 생성 성공"
+                        } else if (httpCode == "422") {
+                            echo "⚠️ PR 생성 실패: 이미 PR이 존재합니다 (HTTP 422)"
+                            echo "응답: ${response}"
+                        } else {
+                            echo "⚠️ PR 생성 실패 (HTTP ${httpCode})"
+                            echo "응답: ${response}"
+                        }
                     }
                 }
             }
