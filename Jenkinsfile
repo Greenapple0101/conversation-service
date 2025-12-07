@@ -1,5 +1,5 @@
 // ✅ CI/CD Pipeline for conversation-service
-// Jenkins 노드 스케줄링 및 웹훅 테스트
+// Jenkins 노드 스케줄링 및 웹훅 테스트 (develop 브랜치)
 pipeline {
     agent any
 
