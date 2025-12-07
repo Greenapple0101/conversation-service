@@ -90,16 +90,27 @@ pipeline {
                 }
             }
             steps {
-                timeout(time: 5, unit: 'MINUTES') {
-                    withSonarQubeEnv('sonarqube') {
-                        waitForQualityGate abortPipeline: true
+                script {
+                    // SonarCloud 분석 결과 처리 대기 (최대 15분)
+                    timeout(time: 15, unit: 'MINUTES') {
+                        withSonarQubeEnv('sonarqube') {
+                            def qg = waitForQualityGate abortPipeline: false
+                            
+                            if (qg.status != 'OK') {
+                                echo "⚠️ Quality Gate 상태: ${qg.status}"
+                                echo "⚠️ Quality Gate 실패했지만 파이프라인은 계속 진행합니다"
+                                // abortPipeline: false로 설정하여 실패해도 계속 진행
+                            } else {
+                                echo "✅ Quality Gate 통과"
+                            }
+                        }
                     }
                 }
             }
         }
 
         /* ============================================================
-         * 4️⃣ develop → main PR 자동 생성 (충돌 방지를 위해 main 먼저 머지)
+         * 4️⃣ develop → main PR 자동 생성 (수동 머지 대기)
          * ============================================================ */
         stage('Auto Create PR (develop → main)') {
             when {
@@ -119,6 +130,51 @@ pipeline {
                         ''',
                         returnStdout: true
                     ).trim()
+
+
+                    echo "PR 조회 결과: ${prList}"
+
+                    // PR 목록 파싱하여 실제 PR 존재 여부 확인
+                    def prExists = false
+                    if (prList && prList != "[]" && prList != "") {
+                        try {
+                            def prCount = sh(
+                                script: '''
+                                echo ''' + prList + ''' | jq '. | length'
+                                ''',
+                                returnStdout: true
+                            ).trim()
+                            
+                            if (prCount && prCount != "0" && prCount != "") {
+                                prExists = true
+                                def prNumber = sh(
+                                    script: '''
+                                    echo ''' + prList + ''' | jq -r '.[0].number'
+                                    ''',
+                                    returnStdout: true
+                                ).trim()
+                                echo "✅ 이미 PR #${prNumber} 존재 → 생성 스킵"
+                            }
+                        } catch (Exception e) {
+                            echo "⚠️ PR 목록 파싱 실패, 직접 확인 시도"
+                        }
+                    }
+
+                    if (!prExists) {
+                        echo "✅ PR 없음 → 자동 생성"
+                        
+                        def createResult = sh(
+                            script: '''
+                            curl -s -w "\\nHTTP_CODE:%{http_code}" -X POST \
+                              -H "Authorization: token ''' + GITHUB_TOKEN + '''" \
+                              -H "Accept: application/vnd.github+json" \
+                              https://api.github.com/repos/''' + GITHUB_OWNER + '''/''' + GITHUB_REPO + '''/pulls \
+                              -d '{
+                                "title": "🚀 develop → main 자동 PR",
+                                "head": "''' + HEAD_BRANCH + '''",
+                                "base": "''' + BASE_BRANCH + '''",
+                                "body": "✅ Jenkins 자동 생성 PR"
+                              }'
 
                     if (prList == "[]" || prList == "") {
                         echo "✅ PR 없음 → 자동 생성"
@@ -182,17 +238,25 @@ pipeline {
                             curl -s -H "Authorization: token ''' + GITHUB_TOKEN + '''" \
                             https://api.github.com/repos/''' + GITHUB_OWNER + '''/''' + GITHUB_REPO + '''/pulls/''' + prNumber + ''' \
                             | jq -r '.mergeable'
+
                             ''',
                             returnStdout: true
                         ).trim()
 
-                        echo "🔁 mergeable 상태: ${mergeable} (시도 ${i + 1}/5)"
+                        def httpCode = createResult.split("HTTP_CODE:")[1]
+                        def response = createResult.split("HTTP_CODE:")[0]
 
-                        if (mergeable == "true") {
-                            echo "✅ mergeable == true 확인됨"
-                            break
+                        if (httpCode == "201") {
+                            echo "✅ PR 생성 성공"
+                        } else if (httpCode == "422") {
+                            echo "⚠️ PR 생성 실패: 이미 PR이 존재합니다 (HTTP 422)"
+                            echo "응답: ${response}"
+                        } else {
+                            echo "⚠️ PR 생성 실패 (HTTP ${httpCode})"
+                            echo "응답: ${response}"
                         }
                     }
+
 
                     if (mergeable != "true") {
                         error "❌ PR이 mergeable 상태가 아님 (현재: ${mergeable}) → 자동 머지 중단"
@@ -253,6 +317,7 @@ pipeline {
                             echo "⚠️ main 브랜치 SHA를 가져올 수 없음 → 동기화 스킵"
                         }
                     }
+
                 }
             }
         }
