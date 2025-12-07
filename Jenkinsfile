@@ -35,7 +35,7 @@ pipeline {
                 }
             }
             steps {
-                withSonarQubeEnv('SonarCloud') {   // ✅ Jenkins에 등록된 Sonar 서버 이름
+                withSonarQubeEnv('sonarqube') {   // ✅ Jenkins에 등록된 Sonar 서버 이름
                     script {
                         def scannerHome = tool 'sonar-scanner'
                         sh """
@@ -61,7 +61,9 @@ pipeline {
             }
             steps {
                 timeout(time: 5, unit: 'MINUTES') {
-                    waitForQualityGate abortPipeline: true
+                    withSonarQubeEnv('sonarqube') {
+                        waitForQualityGate abortPipeline: true
+                    }
                 }
             }
         }
