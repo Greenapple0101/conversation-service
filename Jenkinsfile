@@ -1,4 +1,5 @@
 // ✅ CI/CD Pipeline for conversation-service
+// Jenkins 노드 스케줄링 확인용
 pipeline {
     agent any
 
