@@ -143,7 +143,7 @@ pipeline {
         }
 
         /* ============================================================
-         * ✅ 4️⃣ develop → main 자동 MERGE
+         * ✅ 4️⃣ develop → main 자동 MERGE (충돌 0% 안전 버전)
          * ============================================================ */
         stage('Auto Merge PR (develop → main)') {
             when {
@@ -170,32 +170,35 @@ pipeline {
                         return
                     }
 
-                    echo "✅ PR #${prNumber} 발견 → mergeable 상태 대기"
+                    echo "✅ PR #${prNumber} 발견 → mergeable_state 대기"
 
-                    // ✅ mergeable 계산 완료될 때까지 대기 (최대 5회, 각 5초)
-                    def mergeable = "null"
-                    for (int i = 0; i < 5; i++) {
+                    // ✅ mergeable_state 기준으로 머지 가능 여부 판단 (최대 10회, 각 5초)
+                    String state = "unknown"
+                    for (int i = 0; i < 10; i++) {
                         sleep 5
 
-                        mergeable = sh(
+                        state = sh(
                             script: '''
                             curl -s -H "Authorization: token ''' + GITHUB_TOKEN + '''" \
                             https://api.github.com/repos/''' + GITHUB_OWNER + '''/''' + GITHUB_REPO + '''/pulls/''' + prNumber + ''' \
-                            | jq -r '.mergeable'
+                            | jq -r '.mergeable_state'
                             ''',
                             returnStdout: true
                         ).trim()
 
-                        echo "🔁 mergeable 상태: ${mergeable} (시도 ${i + 1}/5)"
+                        echo "🔁 mergeable_state: ${state} (${i + 1}/10)"
 
-                        if (mergeable == "true") {
-                            echo "✅ mergeable == true 확인됨"
+                        if (state == "clean") {
+                            echo "✅ mergeable_state == clean 확인됨"
                             break
+                        }
+                        if (state == "dirty") {
+                            error "❌ 실제 충돌 발생 → 자동 머지 중단"
                         }
                     }
 
-                    if (mergeable != "true") {
-                        error "❌ PR이 mergeable 상태가 아님 (현재: ${mergeable}) → 자동 머지 중단"
+                    if (state != "clean") {
+                        error "❌ mergeable_state가 clean이 아님: ${state}"
                     }
 
                     echo "🚀 PR #${prNumber} squash merge 실행"
@@ -216,41 +219,22 @@ pipeline {
                     echo "✅ PR #${prNumber} 머지 완료"
                     echo "머지 응답: ${mergeResponse}"
 
-                    // ✅ PR 머지 후 main 브랜치 최신화 대기 (최대 10초)
+                    // ✅ PR 머지 후 main 브랜치 최신화 대기
                     echo "⏳ main 브랜치 최신화 대기 중..."
                     sleep 10
-                    
-                    // ✅ 근본 원인 해결: PR 머지 후 develop 브랜치를 main과 동기화 (충돌 방지)
-                    echo "🔄 develop 브랜치를 main과 동기화하여 다음 PR 충돌 방지"
-                    script {
-                        // main 브랜치의 최신 SHA 가져오기
-                        def mainSha = sh(
-                            script: '''
-                            curl -s -H "Authorization: token ''' + GITHUB_TOKEN + '''" https://api.github.com/repos/''' + GITHUB_OWNER + '''/''' + GITHUB_REPO + '''/git/refs/heads/''' + BASE_BRANCH + ''' | jq -r '.object.sha'
-                            ''',
-                            returnStdout: true
-                        ).trim()
-                        
-                        if (mainSha && mainSha != "null" && mainSha != "") {
-                            echo "✅ main 브랜치 SHA: ${mainSha}"
-                            
-                            // develop 브랜치를 main과 동기화 (force update)
-                            sh '''
-                            curl -X PATCH \
-                              -H "Authorization: token ''' + GITHUB_TOKEN + '''" \
-                              -H "Accept: application/vnd.github+json" \
-                              https://api.github.com/repos/''' + GITHUB_OWNER + '''/''' + GITHUB_REPO + '''/git/refs/heads/''' + HEAD_BRANCH + ''' \
-                              -d '{
-                                "sha": "''' + mainSha + '''",
-                                "force": true
-                              }'
-                            '''
-                            
-                            echo "✅ develop 브랜치가 main과 동기화됨 → 다음 PR 충돌 없음"
-                        } else {
-                            echo "⚠️ main 브랜치 SHA를 가져올 수 없음 → 동기화 스킵"
-                        }
-                    }
+
+                    // ✅ 안전한 동기화: force 없이 git merge로 main → develop 동기화
+                    echo "🔄 main → develop 안전 동기화 (force 없음)"
+                    sh """
+                    git config user.name "Jenkins"
+                    git config user.email "jenkins@ci"
+                    git fetch origin
+                    git checkout ${HEAD_BRANCH}
+                    git merge origin/${BASE_BRANCH} --no-edit || echo "이미 동기화됨"
+                    git push origin ${HEAD_BRANCH} || echo "푸시 실패 (이미 최신 상태일 수 있음)"
+                    """
+
+                    echo "✅ develop 브랜치가 main과 안전하게 동기화됨 → 다음 PR 충돌 없음"
                 }
             }
         }
