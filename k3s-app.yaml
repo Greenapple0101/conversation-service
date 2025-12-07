@@ -23,7 +23,7 @@ spec:
           image: yorange50/conversation:latest   # ✅ Jenkins에서 push한 Docker 이미지
           imagePullPolicy: Always
           ports:
-            - containerPort: 5000              # Flask 내부 포트
+            - containerPort: 5000              # ✅ Gunicorn 리슨 포트와 일치
               name: http
           env:
             - name: OPENAI_API_KEY
@@ -41,7 +41,7 @@ spec:
           livenessProbe:
             httpGet:
               path: /health
-              port: 5000
+              port: 5000                      # ✅ containerPort와 일치
             initialDelaySeconds: 30
             periodSeconds: 10
             timeoutSeconds: 5
@@ -49,7 +49,7 @@ spec:
           readinessProbe:
             httpGet:
               path: /health
-              port: 5000
+              port: 5000                      # ✅ containerPort와 일치
             initialDelaySeconds: 10
             periodSeconds: 5
             timeoutSeconds: 3
@@ -71,8 +71,8 @@ spec:
     app: conversation
   type: NodePort
   ports:
-    - port: 5000           # 클러스터 내부에서 접근할 포트
-      targetPort: 5000     # 컨테이너의 포트
+    - port: 5000           # ✅ 클러스터 내부에서 접근할 포트
+      targetPort: 5000     # ✅ 컨테이너의 포트 (Gunicorn 리슨 포트와 일치)
       nodePort: 30080      # 외부 접근을 위한 NodePort
       protocol: TCP
       name: http
