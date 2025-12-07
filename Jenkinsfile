@@ -254,16 +254,23 @@ pipeline {
         }
 
         /* ============================================================
-         * 7️⃣ YAML 파일 서버로 전송
+         * 7️⃣ YAML 파일 이미지 태그 업데이트 및 서버 전송
          * ============================================================ */
         stage('Sync YAML to Server') {
             when {
                 expression { env.BRANCH_NAME == 'main' }
             }
             steps {
-                echo "🗂️ k3s-app.yaml 최신 버전을 서버로 동기화"
-                sshagent(credentials: ['ubuntu']) {
-                    script {
+                script {
+                    echo "🗂️ k3s-app.yaml 이미지 태그 업데이트 및 서버 전송"
+                    
+                    // YAML 파일의 image 태그를 빌드 태그로 업데이트
+                    sh """
+                    sed -i.bak 's|image: ${DOCKER_IMAGE}:.*|image: ${env.FULL_IMAGE_NAME}|g' ${YAML_FILE}
+                    echo "✅ YAML 이미지 태그 업데이트: ${env.FULL_IMAGE_NAME}"
+                    """
+                    
+                    sshagent(credentials: ['ubuntu']) {
                         // 서버에 디렉토리 생성 및 YAML 파일 전송
                         sh """
                         ssh -o StrictHostKeyChecking=no ${DEPLOY_USER}@${DEPLOY_SERVER} 'mkdir -p ${DEPLOY_PATH}'
@@ -275,7 +282,7 @@ pipeline {
         }
 
         /* ============================================================
-         * 8️⃣ main 브랜치에서 자동 배포 (실무형 - main merge 시 자동 실행)
+         * 8️⃣ main 브랜치에서 YAML 기반 배포 (실무형 - IaC 방식)
          * ============================================================ */
         stage('Deploy to k3s Cluster (main branch)') {
             when {
@@ -283,17 +290,26 @@ pipeline {
             }
             steps {
                 sshagent(credentials: ['ubuntu']) {
-                    sh """
-                    ssh -o StrictHostKeyChecking=no ${DEPLOY_USER}@${DEPLOY_SERVER} '
-                        echo "🔄 main 브랜치에서 직접 배포 시작..."
+                    script {
+                        echo "🔄 YAML 기반 배포 시작 (IaC 방식)"
                         echo "📦 배포 이미지: ${env.FULL_IMAGE_NAME}"
-                        kubectl set image deployment/conversation \
-                        conversation-container=${env.FULL_IMAGE_NAME} \
-                        || kubectl apply -f ${DEPLOY_PATH}/${YAML_FILE}
-                        kubectl rollout restart deployment conversation
-                        echo "✅ 배포 완료"
-                    '
-                    """
+                        echo "📄 YAML 파일: ${DEPLOY_PATH}/${YAML_FILE}"
+                        
+                        sh """
+                        ssh -o StrictHostKeyChecking=no ${DEPLOY_USER}@${DEPLOY_SERVER} '
+                            echo "🚀 kubectl apply 실행..."
+                            kubectl apply -f ${DEPLOY_PATH}/${YAML_FILE}
+                            
+                            echo "⏳ 롤아웃 상태 확인 중..."
+                            kubectl rollout status deployment/conversation --timeout=5m
+                            
+                            echo "✅ 배포 완료"
+                            echo "📊 현재 배포 상태:"
+                            kubectl get deployment conversation -o wide
+                            kubectl get pods -l app=conversation
+                        '
+                        """
+                    }
                 }
             }
         }
