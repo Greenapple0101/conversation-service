@@ -30,19 +30,20 @@ pipeline {
         stage('SonarCloud Analysis') {
             when {
                 anyOf {
-                    expression { env.GIT_BRANCH?.contains('develop') }
-                    expression { env.GIT_BRANCH?.contains('main') }
+                    expression { env.GIT_BRANCH == 'origin/develop' || env.GIT_BRANCH == 'develop' }
+                    expression { env.GIT_BRANCH == 'origin/main' || env.GIT_BRANCH == 'main' }
                     changeRequest()
                 }
             }
             steps {
                 withSonarQubeEnv('sonarqube') {
                     script {
-                        def scannerHome = tool 'sonar-scanner'   // ✅ Jenkins Tool 경로
+                        def scannerHome = tool 'sonar-scanner'
                         sh """
                             ${scannerHome}/bin/sonar-scanner \
                               -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
                               -Dsonar.organization=${SONAR_ORG} \
+                              -Dsonar.host.url=https://sonarcloud.io \
                               -Dsonar.token=${SONAR_TOKEN}
                         """
                     }
@@ -53,8 +54,8 @@ pipeline {
         stage('Quality Gate') {
             when {
                 anyOf {
-                    expression { env.GIT_BRANCH?.contains('develop') }
-                    expression { env.GIT_BRANCH?.contains('main') }
+                    expression { env.GIT_BRANCH == 'origin/develop' || env.GIT_BRANCH == 'develop' }
+                    expression { env.GIT_BRANCH == 'origin/main' || env.GIT_BRANCH == 'main' }
                     changeRequest()
                 }
             }
@@ -70,7 +71,7 @@ pipeline {
         /* ✅ develop → main PR 자동 생성 */
         stage('Auto Create PR (develop → main)') {
             when {
-                expression { env.GIT_BRANCH?.contains('develop') }
+                expression { env.GIT_BRANCH == 'origin/develop' || env.GIT_BRANCH == 'develop' }
             }
             steps {
                 sh """
@@ -91,8 +92,8 @@ pipeline {
         stage('Build Docker Image') {
             when {
                 anyOf {
-                    expression { env.GIT_BRANCH?.contains('develop') }
-                    expression { env.GIT_BRANCH?.contains('main') }
+                    expression { env.GIT_BRANCH == 'origin/develop' || env.GIT_BRANCH == 'develop' }
+                    expression { env.GIT_BRANCH == 'origin/main' || env.GIT_BRANCH == 'main' }
                 }
             }
             steps {
@@ -103,8 +104,8 @@ pipeline {
         stage('Login & Push Docker Image') {
             when {
                 anyOf {
-                    expression { env.GIT_BRANCH?.contains('develop') }
-                    expression { env.GIT_BRANCH?.contains('main') }
+                    expression { env.GIT_BRANCH == 'origin/develop' || env.GIT_BRANCH == 'develop' }
+                    expression { env.GIT_BRANCH == 'origin/main' || env.GIT_BRANCH == 'main' }
                 }
             }
             steps {
@@ -118,7 +119,7 @@ pipeline {
         /* ✅ main 만 운영 배포 */
         stage('Deploy to k3s Cluster') {
             when {
-                expression { env.GIT_BRANCH?.contains('main') }
+                expression { env.GIT_BRANCH == 'origin/main' || env.GIT_BRANCH == 'main' }
             }
             steps {
                 sshagent(credentials: ['ubuntu']) {
@@ -143,4 +144,3 @@ pipeline {
         }
     }
 }
-//ㅇㅇㅇㅇㅇ
