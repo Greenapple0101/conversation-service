@@ -25,9 +25,14 @@ pipeline {
             }
         }
 
+        /* ✅ Sonar는 develop / main / PR 에서만 */
         stage('SonarCloud Analysis') {
             when {
-                branch 'develop'
+                anyOf {
+                    expression { env.GIT_BRANCH?.contains('develop') }
+                    expression { env.GIT_BRANCH?.contains('main') }
+                    changeRequest()
+                }
             }
             steps {
                 script {
@@ -43,14 +48,42 @@ pipeline {
             }
         }
 
-        stage('Build Docker Image') {
+        stage('Quality Gate') {
+            when {
+                anyOf {
+                    expression { env.GIT_BRANCH?.contains('develop') }
+                    expression { env.GIT_BRANCH?.contains('main') }
+                    changeRequest()
+                }
+            }
             steps {
-                echo "🐳 도커 이미지 빌드 중..."
+                timeout(time: 5, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
+            }
+        }
+
+        /* ✅ Docker Build: develop & main */
+        stage('Build Docker Image') {
+            when {
+                anyOf {
+                    expression { env.GIT_BRANCH?.contains('develop') }
+                    expression { env.GIT_BRANCH?.contains('main') }
+                }
+            }
+            steps {
                 sh "docker build -t ${DOCKER_IMAGE}:latest ."
             }
         }
 
+        /* ✅ Docker Push: develop & main */
         stage('Login & Push Docker Image') {
+            when {
+                anyOf {
+                    expression { env.GIT_BRANCH?.contains('develop') }
+                    expression { env.GIT_BRANCH?.contains('main') }
+                }
+            }
             steps {
                 sh """
                     echo ${DOCKERHUB_PSW} | docker login -u ${DOCKERHUB_USR} --password-stdin
@@ -59,27 +92,17 @@ pipeline {
             }
         }
 
-        stage('Sync YAML to Server') {
-            steps {
-                sshagent(credentials: ['ubuntu']) {
-                    sh """
-                        ssh -o StrictHostKeyChecking=no ${DEPLOY_USER}@${DEPLOY_SERVER} '
-                            mkdir -p ${DEPLOY_PATH}
-                        '
-                        scp -o StrictHostKeyChecking=no ${YAML_FILE} \
-                          ${DEPLOY_USER}@${DEPLOY_SERVER}:${DEPLOY_PATH}/${YAML_FILE}
-                    """
-                }
-            }
-        }
-
+        /* ✅ ✅ ✅ 운영 배포는 main에서만 */
         stage('Deploy to k3s Cluster') {
+            when {
+                expression { env.GIT_BRANCH?.contains('main') }
+            }
             steps {
                 sshagent(credentials: ['ubuntu']) {
                     sh """
                         ssh -o StrictHostKeyChecking=no ${DEPLOY_USER}@${DEPLOY_SERVER} '
                             kubectl set image deployment/conversation \
-                              conversation-container=${DOCKER_IMAGE}:latest --record \
+                              conversation-container=${DOCKER_IMAGE}:latest \
                             || kubectl apply -f ${DEPLOY_PATH}/${YAML_FILE}
                         '
                     """
@@ -90,10 +113,10 @@ pipeline {
 
     post {
         success {
-            echo "🎉 CI/CD + Sonar + 배포 성공!"
+            echo "🎉 CI 성공 (운영 배포는 main일 때만 실행됨)"
         }
         failure {
-            echo "❌ 실패 - Jenkins 로그 확인"
+            echo "❌ 품질 게이트 또는 빌드 실패"
         }
     }
 }
