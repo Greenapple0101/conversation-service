@@ -207,8 +207,22 @@ pipeline {
                 }
             }
             steps {
-                echo "🐳 Docker 이미지 빌드"
-                sh "docker build -t ${DOCKER_IMAGE}:latest ."
+                script {
+                    // Git SHA 기반 태그 생성 (캐시 문제 해결)
+                    def imageTag = sh(
+                        script: "git rev-parse --short HEAD",
+                        returnStdout: true
+                    ).trim()
+                    
+                    env.IMAGE_TAG = imageTag
+                    env.FULL_IMAGE_NAME = "${DOCKER_IMAGE}:${imageTag}"
+                    
+                    echo "🐳 Docker 이미지 빌드 (태그: ${imageTag})"
+                    echo "📦 이미지명: ${env.FULL_IMAGE_NAME}"
+                    
+                    // 캐시 무시하고 완전히 새로 빌드
+                    sh "docker build --no-cache -t ${env.FULL_IMAGE_NAME} -t ${DOCKER_IMAGE}:latest ."
+                }
             }
         }
 
@@ -232,6 +246,7 @@ pipeline {
                 ]) {
                     sh '''
                     echo $DOCKERHUB_PSW | docker login -u $DOCKERHUB_USR --password-stdin
+                    docker push ${FULL_IMAGE_NAME}
                     docker push ${DOCKER_IMAGE}:latest
                     '''
                 }
@@ -239,7 +254,28 @@ pipeline {
         }
 
         /* ============================================================
-         * 7️⃣ main 브랜치에서 자동 배포 (실무형 - main merge 시 자동 실행)
+         * 7️⃣ YAML 파일 서버로 전송
+         * ============================================================ */
+        stage('Sync YAML to Server') {
+            when {
+                expression { env.BRANCH_NAME == 'main' }
+            }
+            steps {
+                echo "🗂️ k3s-app.yaml 최신 버전을 서버로 동기화"
+                sshagent(credentials: ['ubuntu']) {
+                    script {
+                        // 서버에 디렉토리 생성 및 YAML 파일 전송
+                        sh """
+                        ssh -o StrictHostKeyChecking=no ${DEPLOY_USER}@${DEPLOY_SERVER} 'mkdir -p ${DEPLOY_PATH}'
+                        scp -o StrictHostKeyChecking=no ${YAML_FILE} ${DEPLOY_USER}@${DEPLOY_SERVER}:${DEPLOY_PATH}/${YAML_FILE}
+                        """
+                    }
+                }
+            }
+        }
+
+        /* ============================================================
+         * 8️⃣ main 브랜치에서 자동 배포 (실무형 - main merge 시 자동 실행)
          * ============================================================ */
         stage('Deploy to k3s Cluster (main branch)') {
             when {
@@ -250,9 +286,11 @@ pipeline {
                     sh """
                     ssh -o StrictHostKeyChecking=no ${DEPLOY_USER}@${DEPLOY_SERVER} '
                         echo "🔄 main 브랜치에서 직접 배포 시작..."
+                        echo "📦 배포 이미지: ${env.FULL_IMAGE_NAME}"
                         kubectl set image deployment/conversation \
-                        conversation-container=${DOCKER_IMAGE}:latest \
+                        conversation-container=${env.FULL_IMAGE_NAME} \
                         || kubectl apply -f ${DEPLOY_PATH}/${YAML_FILE}
+                        kubectl rollout restart deployment conversation
                         echo "✅ 배포 완료"
                     '
                     """
