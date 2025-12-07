@@ -1,6 +1,7 @@
 # ------------------------------------------
 # 1️⃣ Conversation Service Deployment
-# 포트 5000, Health Check /health 엔드포인트 사용
+# 포트 5000 통일 (Gunicorn 리슨 포트와 일치)
+# Health Check: /health 엔드포인트 사용
 # ------------------------------------------
 apiVersion: apps/v1
 kind: Deployment
