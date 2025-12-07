@@ -4,7 +4,7 @@ pipeline {
     environment {
         DOCKERHUB = credentials('dockerhub-credentials')
 
-        SONAR_TOKEN = credentials('SONAR_TOKEN')
+        SONAR_TOKEN = credentials('sonar-token')
         SONAR_ORG   = credentials('SONAR_ORG')
         SONAR_PROJECT_KEY = credentials('SONAR_PROJECT_KEY')
 
