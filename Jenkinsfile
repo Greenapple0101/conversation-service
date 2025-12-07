@@ -8,7 +8,7 @@ pipeline {
         SONAR_ORG   = credentials('SONAR_ORG')
         SONAR_PROJECT_KEY = credentials('SONAR_PROJECT_KEY')
 
-        DOCKER_IMAGE = "yorange50/conversation "
+        DOCKER_IMAGE = "yorange50/conversation"
 
         DEPLOY_USER = "ubuntu"
         DEPLOY_SERVER = "3.34.155.126"
