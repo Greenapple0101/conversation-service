@@ -121,38 +121,8 @@ pipeline {
                     ).trim()
 
                     if (prList == "[]" || prList == "") {
-                        echo "✅ PR 없음 → main 브랜치 최신화 후 PR 생성"
+                        echo "✅ PR 없음 → 자동 생성"
                         
-                        // ✅ 충돌 방지: main 브랜치의 최신 변경사항을 develop에 먼저 머지
-                        echo "🔄 main 브랜치 최신 변경사항을 develop에 먼저 머지 (충돌 방지)"
-                        sh """
-                        git config user.name "Jenkins"
-                        git config user.email "jenkins@ci"
-                        git fetch origin ${BASE_BRANCH}:${BASE_BRANCH}
-                        git merge origin/${BASE_BRANCH} -m "chore: main 브랜치 최신화 (충돌 방지)" || true
-                        """
-                        
-                        // 머지 후 충돌이 있으면 main의 변경사항을 우선 (ours 전략)
-                        def hasConflict = sh(
-                            script: "git diff --check || echo 'conflict'",
-                            returnStdout: true
-                        ).trim()
-                        
-                        if (hasConflict.contains('conflict')) {
-                            echo "⚠️ 충돌 감지 → main 브랜치 변경사항 우선 적용"
-                            sh """
-                            git checkout --theirs .
-                            git add .
-                            git commit -m "chore: main 브랜치 변경사항 반영 (충돌 해결)" || true
-                            """
-                        }
-                        
-                        // develop 브랜치에 푸시
-                        sh """
-                        git push origin ${HEAD_BRANCH} || echo "푸시 실패 (이미 최신 상태일 수 있음)"
-                        """
-                        
-                        echo "✅ PR 자동 생성"
                         sh """
                         curl -s -X POST \
                           -H "Authorization: token ${GITHUB_TOKEN}" \
@@ -162,7 +132,7 @@ pipeline {
                             "title": "🚀 develop → main 자동 PR",
                             "head": "${HEAD_BRANCH}",
                             "base": "${BASE_BRANCH}",
-                            "body": "✅ Jenkins 자동 생성 PR\\n✅ main 브랜치 최신화 완료 (충돌 방지)"
+                            "body": "✅ Jenkins 자동 생성 PR"
                           }'
                         """
                     } else {
