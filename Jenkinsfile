@@ -66,13 +66,13 @@ pipeline {
                 withSonarQubeEnv('sonarqube') {
                     script {
                         def scannerHome = tool 'sonar-scanner'
-                        sh """
+                        sh '''
                         ${scannerHome}/bin/sonar-scanner \
-                          -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
-                          -Dsonar.organization=${SONAR_ORG} \
+                          -Dsonar.projectKey=''' + SONAR_PROJECT_KEY + ''' \
+                          -Dsonar.organization=''' + SONAR_ORG + ''' \
                           -Dsonar.host.url=https://sonarcloud.io \
-                          -Dsonar.token=${SONAR_TOKEN}
-                        """
+                          -Dsonar.token=''' + SONAR_TOKEN + '''
+                        '''
                     }
                 }
             }
@@ -113,28 +113,28 @@ pipeline {
                     echo "🔍 기존 PR 존재 여부 확인"
 
                     def prList = sh(
-                        script: """
-                        curl -s -H "Authorization: token ${GITHUB_TOKEN}" \
-                        https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/pulls?head=${GITHUB_OWNER}:${HEAD_BRANCH}&base=${BASE_BRANCH}&state=open
-                        """,
+                        script: '''
+                        curl -s -H "Authorization: token ''' + GITHUB_TOKEN + '''" \
+                        https://api.github.com/repos/''' + GITHUB_OWNER + '''/''' + GITHUB_REPO + '''/pulls?head=''' + GITHUB_OWNER + ''':''' + HEAD_BRANCH + '''&base=''' + BASE_BRANCH + '''&state=open
+                        ''',
                         returnStdout: true
                     ).trim()
 
                     if (prList == "[]" || prList == "") {
                         echo "✅ PR 없음 → 자동 생성"
                         
-                        sh """
+                        sh '''
                         curl -s -X POST \
-                          -H "Authorization: token ${GITHUB_TOKEN}" \
+                          -H "Authorization: token ''' + GITHUB_TOKEN + '''" \
                           -H "Accept: application/vnd.github+json" \
-                          https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/pulls \
+                          https://api.github.com/repos/''' + GITHUB_OWNER + '''/''' + GITHUB_REPO + '''/pulls \
                           -d '{
                             "title": "🚀 develop → main 자동 PR",
-                            "head": "${HEAD_BRANCH}",
-                            "base": "${BASE_BRANCH}",
+                            "head": "''' + HEAD_BRANCH + '''",
+                            "base": "''' + BASE_BRANCH + '''",
                             "body": "✅ Jenkins 자동 생성 PR"
                           }'
-                        """
+                        '''
                     } else {
                         echo "⚠️ 이미 PR 존재 → 생성 스킵"
                     }
@@ -157,11 +157,11 @@ pipeline {
                     echo "🔍 PR 번호 조회"
 
                     def prNumber = sh(
-                        script: """
-                        curl -s -H "Authorization: token ${GITHUB_TOKEN}" \
-                        https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/pulls \
+                        script: '''
+                        curl -s -H "Authorization: token ''' + GITHUB_TOKEN + '''" \
+                        https://api.github.com/repos/''' + GITHUB_OWNER + '''/''' + GITHUB_REPO + '''/pulls \
                         | jq -r '.[] | select(.head.ref=="develop" and .base.ref=="main") | .number'
-                        """,
+                        ''',
                         returnStdout: true
                     ).trim()
 
@@ -178,11 +178,11 @@ pipeline {
                         sleep 5
 
                         mergeable = sh(
-                            script: """
-                            curl -s -H "Authorization: token ${GITHUB_TOKEN}" \
-                            https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/pulls/${prNumber} \
+                            script: '''
+                            curl -s -H "Authorization: token ''' + GITHUB_TOKEN + '''" \
+                            https://api.github.com/repos/''' + GITHUB_OWNER + '''/''' + GITHUB_REPO + '''/pulls/''' + prNumber + ''' \
                             | jq -r '.mergeable'
-                            """,
+                            ''',
                             returnStdout: true
                         ).trim()
 
@@ -266,55 +266,7 @@ pipeline {
         }
 
         /* ============================================================
-         * 7️⃣ main 브랜치 머지 후 자동 배포 (develop에서 PR 머지한 경우)
-         * ============================================================ */
-        stage('Deploy to k3s Cluster (after PR merge)') {
-            when {
-                expression { env.BRANCH_NAME == 'develop' }
-            }
-            steps {
-                script {
-                    echo "🔍 PR 머지 여부 확인"
-                    def mergedPR = sh(
-                        script: """
-                        curl -s -H "Authorization: token ${GITHUB_TOKEN}" \
-                        https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/pulls?head=${GITHUB_OWNER}:${HEAD_BRANCH}&base=${BASE_BRANCH}&state=closed \
-                        | jq -r '.[0] | select(.merged_at != null) | .number'
-                        """,
-                        returnStdout: true
-                    ).trim()
-
-                    if (mergedPR) {
-                        echo "✅ PR #${mergedPR}가 머지됨 → main 브랜치로 전환하여 배포"
-                        
-                        // main 브랜치 체크아웃
-                        sh """
-                        git fetch origin main:main
-                        git checkout main
-                        git pull origin main
-                        """
-                        
-                        // k3s 배포 실행
-                        sshagent(credentials: ['ubuntu']) {
-                            sh """
-                            ssh -o StrictHostKeyChecking=no ${DEPLOY_USER}@${DEPLOY_SERVER} '
-                                echo "🔄 최신 Docker 이미지로 배포 시작..."
-                                kubectl set image deployment/conversation \
-                                conversation-container=${DOCKER_IMAGE}:latest \
-                                || kubectl apply -f ${DEPLOY_PATH}/${YAML_FILE}
-                                echo "✅ 배포 완료"
-                            '
-                            """
-                        }
-                    } else {
-                        echo "⚠️ 머지된 PR이 없음 → 배포 스킵"
-                    }
-                }
-            }
-        }
-
-        /* ============================================================
-         * 8️⃣ main 브랜치에서 직접 배포
+         * 7️⃣ main 브랜치에서 자동 배포 (실무형 - main merge 시 자동 실행)
          * ============================================================ */
         stage('Deploy to k3s Cluster (main branch)') {
             when {
