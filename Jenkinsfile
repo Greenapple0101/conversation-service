@@ -45,6 +45,7 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
+                echo "🐳 도커 이미지 빌드 중..."
                 sh "docker build -t ${DOCKER_IMAGE}:latest ."
             }
         }
