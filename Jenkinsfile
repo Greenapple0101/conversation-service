@@ -199,17 +199,25 @@ pipeline {
 
                     echo "🚀 PR #${prNumber} squash merge 실행"
 
-                    sh """
-                    curl -X PUT \
-                      -H "Authorization: token ${GITHUB_TOKEN}" \
-                      -H "Accept: application/vnd.github+json" \
-                      https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/pulls/${prNumber}/merge \
-                      -d '{
-                        "merge_method": "squash"
-                      }'
-                    """
+                    def mergeResponse = sh(
+                        script: """
+                        curl -s -X PUT \
+                          -H "Authorization: token ${GITHUB_TOKEN}" \
+                          -H "Accept: application/vnd.github+json" \
+                          https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/pulls/${prNumber}/merge \
+                          -d '{
+                            "merge_method": "squash"
+                          }'
+                        """,
+                        returnStdout: true
+                    ).trim()
 
                     echo "✅ PR #${prNumber} 머지 완료"
+                    echo "머지 응답: ${mergeResponse}"
+
+                    // ✅ PR 머지 후 main 브랜치 최신화 대기 (최대 10초)
+                    echo "⏳ main 브랜치 최신화 대기 중..."
+                    sleep 10
                 }
             }
         }
@@ -257,9 +265,57 @@ pipeline {
         }
 
         /* ============================================================
-         * 7️⃣ main 브랜치에서만 배포
+         * 7️⃣ main 브랜치 머지 후 자동 배포 (develop에서 PR 머지한 경우)
          * ============================================================ */
-        stage('Deploy to k3s Cluster') {
+        stage('Deploy to k3s Cluster (after PR merge)') {
+            when {
+                expression { env.BRANCH_NAME == 'develop' }
+            }
+            steps {
+                script {
+                    echo "🔍 PR 머지 여부 확인"
+                    def mergedPR = sh(
+                        script: """
+                        curl -s -H "Authorization: token ${GITHUB_TOKEN}" \
+                        https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/pulls?head=${GITHUB_OWNER}:${HEAD_BRANCH}&base=${BASE_BRANCH}&state=closed \
+                        | jq -r '.[0] | select(.merged_at != null) | .number'
+                        """,
+                        returnStdout: true
+                    ).trim()
+
+                    if (mergedPR) {
+                        echo "✅ PR #${mergedPR}가 머지됨 → main 브랜치로 전환하여 배포"
+                        
+                        // main 브랜치 체크아웃
+                        sh """
+                        git fetch origin main:main
+                        git checkout main
+                        git pull origin main
+                        """
+                        
+                        // k3s 배포 실행
+                        sshagent(credentials: ['ubuntu']) {
+                            sh """
+                            ssh -o StrictHostKeyChecking=no ${DEPLOY_USER}@${DEPLOY_SERVER} '
+                                echo "🔄 최신 Docker 이미지로 배포 시작..."
+                                kubectl set image deployment/conversation \
+                                conversation-container=${DOCKER_IMAGE}:latest \
+                                || kubectl apply -f ${DEPLOY_PATH}/${YAML_FILE}
+                                echo "✅ 배포 완료"
+                            '
+                            """
+                        }
+                    } else {
+                        echo "⚠️ 머지된 PR이 없음 → 배포 스킵"
+                    }
+                }
+            }
+        }
+
+        /* ============================================================
+         * 8️⃣ main 브랜치에서 직접 배포
+         * ============================================================ */
+        stage('Deploy to k3s Cluster (main branch)') {
             when {
                 expression { env.BRANCH_NAME == 'main' }
             }
@@ -267,9 +323,11 @@ pipeline {
                 sshagent(credentials: ['ubuntu']) {
                     sh """
                     ssh -o StrictHostKeyChecking=no ${DEPLOY_USER}@${DEPLOY_SERVER} '
+                        echo "🔄 main 브랜치에서 직접 배포 시작..."
                         kubectl set image deployment/conversation \
                         conversation-container=${DOCKER_IMAGE}:latest \
                         || kubectl apply -f ${DEPLOY_PATH}/${YAML_FILE}
+                        echo "✅ 배포 완료"
                     '
                     """
                 }
