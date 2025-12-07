@@ -30,8 +30,8 @@ pipeline {
         stage('SonarCloud Analysis') {
             when {
                 anyOf {
-                    branch 'develop'
-                    branch 'main'
+                    expression { env.GIT_BRANCH == 'origin/develop' || env.GIT_BRANCH == 'develop' }
+                    expression { env.GIT_BRANCH == 'origin/main' || env.GIT_BRANCH == 'main' }
                     changeRequest()
                 }
             }
@@ -50,8 +50,8 @@ pipeline {
         stage('Quality Gate') {
             when {
                 anyOf {
-                    branch 'develop'
-                    branch 'main'
+                    expression { env.GIT_BRANCH == 'origin/develop' || env.GIT_BRANCH == 'develop' }
+                    expression { env.GIT_BRANCH == 'origin/main' || env.GIT_BRANCH == 'main' }
                     changeRequest()
                 }
             }
@@ -67,7 +67,7 @@ pipeline {
         /* ✅ develop → main PR 자동 생성 */
         stage('Auto Create PR (develop → main)') {
             when {
-                branch 'develop'
+                expression { env.GIT_BRANCH == 'origin/develop' || env.GIT_BRANCH == 'develop' }
             }
             steps {
                 sh """
@@ -88,8 +88,8 @@ pipeline {
         stage('Build Docker Image') {
             when {
                 anyOf {
-                    branch 'develop'
-                    branch 'main'
+                    expression { env.GIT_BRANCH == 'origin/develop' || env.GIT_BRANCH == 'develop' }
+                    expression { env.GIT_BRANCH == 'origin/main' || env.GIT_BRANCH == 'main' }
                 }
             }
             steps {
@@ -100,8 +100,8 @@ pipeline {
         stage('Login & Push Docker Image') {
             when {
                 anyOf {
-                    branch 'develop'
-                    branch 'main'
+                    expression { env.GIT_BRANCH == 'origin/develop' || env.GIT_BRANCH == 'develop' }
+                    expression { env.GIT_BRANCH == 'origin/main' || env.GIT_BRANCH == 'main' }
                 }
             }
             steps {
@@ -115,7 +115,7 @@ pipeline {
         /* ✅ main 만 운영 배포 */
         stage('Deploy to k3s Cluster') {
             when {
-                branch 'main'
+                expression { env.GIT_BRANCH == 'origin/main' || env.GIT_BRANCH == 'main' }
             }
             steps {
                 sshagent(credentials: ['ubuntu']) {
