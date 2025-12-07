@@ -156,19 +156,52 @@ pipeline {
                         returnStdout: true
                     ).trim()
 
-                    if (prNumber) {
-                        echo "✅ PR #${prNumber} 자동 머지 실행"
-
-                        sh """
-                        curl -X PUT \
-                          -H "Authorization: token ${GITHUB_TOKEN}" \
-                          -H "Accept: application/vnd.github+json" \
-                          https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/pulls/${prNumber}/merge \
-                          -d '{ "merge_method": "squash" }'
-                        """
-                    } else {
-                        echo "⚠️ 머지할 PR 없음"
+                    if (!prNumber) {
+                        echo "⚠️ 머지할 PR이 없음"
+                        return
                     }
+
+                    echo "✅ PR #${prNumber} 발견 → mergeable 상태 대기"
+
+                    // ✅ mergeable 계산 완료될 때까지 대기 (최대 5회, 각 5초)
+                    def mergeable = "null"
+                    for (int i = 0; i < 5; i++) {
+                        sleep 5
+
+                        mergeable = sh(
+                            script: """
+                            curl -s -H "Authorization: token ${GITHUB_TOKEN}" \
+                            https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/pulls/${prNumber} \
+                            | jq -r '.mergeable'
+                            """,
+                            returnStdout: true
+                        ).trim()
+
+                        echo "🔁 mergeable 상태: ${mergeable} (시도 ${i + 1}/5)"
+
+                        if (mergeable == "true") {
+                            echo "✅ mergeable == true 확인됨"
+                            break
+                        }
+                    }
+
+                    if (mergeable != "true") {
+                        error "❌ PR이 mergeable 상태가 아님 (현재: ${mergeable}) → 자동 머지 중단"
+                    }
+
+                    echo "🚀 PR #${prNumber} squash merge 실행"
+
+                    sh """
+                    curl -X PUT \
+                      -H "Authorization: token ${GITHUB_TOKEN}" \
+                      -H "Accept: application/vnd.github+json" \
+                      https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/pulls/${prNumber}/merge \
+                      -d '{
+                        "merge_method": "squash"
+                      }'
+                    """
+
+                    echo "✅ PR #${prNumber} 머지 완료"
                 }
             }
         }
