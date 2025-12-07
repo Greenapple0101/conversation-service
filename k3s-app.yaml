@@ -1,0 +1,77 @@
+# ------------------------------------------
+# 1️⃣ Conversation Service Deployment
+# ------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: conversation
+  labels:
+    app: conversation
+spec:
+  replicas: 2                           # Conversation 서버 2개 (필요시 scale up 가능)
+  selector:
+    matchLabels:
+      app: conversation
+  template:
+    metadata:
+      labels:
+        app: conversation
+    spec:
+      containers:
+        - name: conversation-container
+          image: devops-healthyreal/conversation:latest   # ✅ Jenkins에서 push한 Docker 이미지
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8000              # Flask 내부 포트 (Gunicorn 바인드 포트와 동일)
+              name: http
+          env:
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: conversation-secrets
+                  key: openai-api-key
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+      restartPolicy: Always
+
+# ------------------------------------------
+# 2️⃣ Conversation Service
+# ------------------------------------------
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: conversation-service
+  labels:
+    app: conversation-service
+spec:
+  selector:
+    app: conversation
+  type: NodePort
+  ports:
+    - port: 8000           # 클러스터 내부에서 접근할 포트
+      targetPort: 8000     # 컨테이너의 포트 (Gunicorn --bind)
+      nodePort: 30080      # 외부 접근을 위한 NodePort
+      protocol: TCP
+      name: http
