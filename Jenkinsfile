@@ -59,7 +59,7 @@ pipeline {
 
         stage('Sync YAML to Server') {
             steps {
-                sshagent(credentials: ['admin']) {
+                sshagent(credentials: ['ubuntu']) {
                     sh """
                         ssh -o StrictHostKeyChecking=no ${DEPLOY_USER}@${DEPLOY_SERVER} '
                             mkdir -p ${DEPLOY_PATH}
@@ -73,7 +73,7 @@ pipeline {
 
         stage('Deploy to k3s Cluster') {
             steps {
-                sshagent(credentials: ['admin']) {
+                sshagent(credentials: ['ubuntu']) {
                     sh """
                         ssh -o StrictHostKeyChecking=no ${DEPLOY_USER}@${DEPLOY_SERVER} '
                             kubectl set image deployment/conversation \
