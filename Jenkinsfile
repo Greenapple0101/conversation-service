@@ -43,8 +43,8 @@ pipeline {
         stage('SonarCloud Analysis') {
             when {
                 anyOf {
-                    branch 'develop'
-                    branch 'main'
+                    expression { env.GIT_BRANCH?.contains('develop') }
+                    expression { env.GIT_BRANCH?.contains('main') }
                     changeRequest()
                 }
             }
@@ -70,8 +70,8 @@ pipeline {
         stage('Quality Gate') {
             when {
                 anyOf {
-                    branch 'develop'
-                    branch 'main'
+                    expression { env.GIT_BRANCH?.contains('develop') }
+                    expression { env.GIT_BRANCH?.contains('main') }
                     changeRequest()
                 }
             }
@@ -89,7 +89,7 @@ pipeline {
          * ============================================================ */
         stage('Auto Create PR (develop → main)') {
             when {
-                branch 'develop'
+                expression { env.GIT_BRANCH?.contains('develop') }
             }
             steps {
                 script {
@@ -131,8 +131,8 @@ pipeline {
         stage('Build Docker Image') {
             when {
                 anyOf {
-                    branch 'develop'
-                    branch 'main'
+                    expression { env.GIT_BRANCH?.contains('develop') }
+                    expression { env.GIT_BRANCH?.contains('main') }
                 }
             }
             steps {
@@ -147,8 +147,8 @@ pipeline {
         stage('Login & Push Docker Image') {
             when {
                 anyOf {
-                    branch 'develop'
-                    branch 'main'
+                    expression { env.GIT_BRANCH?.contains('develop') }
+                    expression { env.GIT_BRANCH?.contains('main') }
                 }
             }
             steps {
@@ -172,7 +172,7 @@ pipeline {
          * ============================================================ */
         stage('Deploy to k3s Cluster') {
             when {
-                branch 'main'
+                expression { env.GIT_BRANCH?.contains('main') }
             }
             steps {
                 sshagent(credentials: ['ubuntu']) {
