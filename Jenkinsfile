@@ -2,77 +2,85 @@ pipeline {
     agent any
 
     environment {
-        // ✅ 환경 변수 정의
-        DOCKER_IMAGE = "devops-healthyreal/conversation"
-        
+        DOCKERHUB = credentials('dockerhub-credentials')
+
+        SONAR_TOKEN = credentials('SONAR_TOKEN')
+        SONAR_ORG   = credentials('SONAR_ORG')
+        SONAR_PROJECT_KEY = credentials('SONAR_PROJECT_KEY')
+
+        DOCKER_IMAGE = "yorange50/conversation "
+
         DEPLOY_USER = "ubuntu"
-        DEPLOY_SERVER = "3.34.155.126"       // k3s 워커노드 서버 IP
-        DEPLOY_PATH = "/home/ubuntu/k3s-deploy" // kubectl apply 실행 경로
-        YAML_FILE = "k3s-app.yaml"             // 깃허브에 있는 yaml 파일 이름
+        DEPLOY_SERVER = "3.34.155.126"
+        DEPLOY_PATH = "/home/ubuntu/k3s-deploy"
+        YAML_FILE = "k3s-app.yaml"
     }
 
     stages {
+
         stage('Checkout') {
             steps {
-                echo "📦 GitHub에서 소스코드 가져오기"
                 checkout scm
+            }
+        }
+
+        stage('SonarCloud Analysis') {
+            when {
+                branch 'develop'
+            }
+            steps {
+                script {
+                    def scannerHome = tool 'sonar-scanner'
+                    sh """
+                        ${scannerHome}/bin/sonar-scanner \
+                          -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
+                          -Dsonar.organization=${SONAR_ORG} \
+                          -Dsonar.host.url=https://sonarcloud.io \
+                          -Dsonar.login=${SONAR_TOKEN}
+                    """
+                }
             }
         }
 
         stage('Build Docker Image') {
             steps {
-                echo "🐳 도커 이미지 빌드 중..."
-                sh '''
-                docker build -t ${DOCKER_IMAGE}:latest .
-                '''
+                sh "docker build -t ${DOCKER_IMAGE}:latest ."
             }
         }
 
         stage('Login & Push Docker Image') {
             steps {
-                echo "🚀 DockerHub 로그인 및 이미지 푸시"
-                withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-                    sh '''
-                    echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
+                sh """
+                    echo ${DOCKERHUB_PSW} | docker login -u ${DOCKERHUB_USR} --password-stdin
                     docker push ${DOCKER_IMAGE}:latest
-                    '''
-                }
+                """
             }
         }
 
         stage('Sync YAML to Server') {
             steps {
-                echo "🗂️ k3s-app.yaml 최신 버전을 서버로 동기화 (덮어쓰기 또는 신규 생성)"
-                script {
-                    sshagent(credentials: ['admin']) {
-                        // 서버에 yaml 폴더가 없으면 만들고, yaml 파일 덮어쓰기
-                        sh """
+                sshagent(credentials: ['admin']) {
+                    sh """
                         ssh -o StrictHostKeyChecking=no ${DEPLOY_USER}@${DEPLOY_SERVER} '
                             mkdir -p ${DEPLOY_PATH}
                         '
-                        scp -o StrictHostKeyChecking=no ${YAML_FILE} ${DEPLOY_USER}@${DEPLOY_SERVER}:${DEPLOY_PATH}/${YAML_FILE}
-                        """
-                    }
+                        scp -o StrictHostKeyChecking=no ${YAML_FILE} \
+                          ${DEPLOY_USER}@${DEPLOY_SERVER}:${DEPLOY_PATH}/${YAML_FILE}
+                    """
                 }
             }
         }
 
         stage('Deploy to k3s Cluster') {
             steps {
-                echo "⚙️ 원격 서버에 배포(kubectl apply -f)"
-                script {
-                    sshagent(credentials: ['admin']) {
-                        // SSH 플러그인 사용 or 직접 SSH 실행
-                        // kubectl set image <리소스종류>/<리소스이름> <deployment 내부에 정의한 컨테이너이름>=<새이미지> [옵션]
-                        sh """
+                sshagent(credentials: ['admin']) {
+                    sh """
                         ssh -o StrictHostKeyChecking=no ${DEPLOY_USER}@${DEPLOY_SERVER} '
-                            echo "🔄 최신 Docker 이미지 Pull..."
-                            kubectl set image deployment/conversation conversation-container=${DOCKER_IMAGE}:latest --record || \\
-                            kubectl apply -f ${DEPLOY_PATH}/k3s-app.yaml
-                            echo "✅ 배포 완료"
+                            kubectl set image deployment/conversation \
+                              conversation-container=${DOCKER_IMAGE}:latest --record \
+                            || kubectl apply -f ${DEPLOY_PATH}/${YAML_FILE}
                         '
-                        """
-                    }
+                    """
                 }
             }
         }
@@ -80,10 +88,10 @@ pipeline {
 
     post {
         success {
-            echo "🎉 배포 성공!"
+            echo "🎉 CI/CD + Sonar + 배포 성공!"
         }
         failure {
-            echo "❌ 배포 실패. 로그를 확인하세요."
+            echo "❌ 실패 - Jenkins 로그 확인"
         }
     }
-} //ㅇㅇㅇㅇㅇㅇ
+}
