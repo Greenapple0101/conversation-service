@@ -54,4 +54,4 @@ def AIChatBot(content, message):
         message.append({'role': 'assistant', 'content': answer})
         return {'status': 'SUCCESS', 'messages': answer}
     except Exception as e:
-        return {'status': 'FAIL', 'messages': "API Error"}
+        return {'status': 'FAIL', 'messages': f"API Error: {e}"}
