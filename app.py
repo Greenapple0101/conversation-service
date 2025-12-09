@@ -6,6 +6,7 @@ from api.summary import Summary
 from api.text_emotion_detect import TextEmotionDetection
 from api.create_image import CreateImage
 from api.chat_ai import ChatAI
+from api.calculate_food import CalculateCalo
 
 app = Flask(__name__)
 
@@ -16,6 +17,7 @@ api.add_resource(Summary, '/summaryAPI')
 api.add_resource(TextEmotionDetection, '/diary')
 api.add_resource(CreateImage, "/CreateIm")
 api.add_resource(ChatAI, "/ChatAI")
+api.add_resource(CalculateCalo, "/calculate-calo")
 
 @app.route('/health')
 def health():
@@ -23,4 +25,4 @@ def health():
 
 if __name__ == '__main__':
     # app.run(debug=True)
-    app.run(host='0.0.0.0', port=5000)
+    app.run(host='127.0.0.1', port=5000)
