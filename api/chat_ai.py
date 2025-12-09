@@ -35,6 +35,7 @@ class ChatAI(Resource):
 
 
 def AIChatBot(content, message):
+    print(f"ai 챗봇 api 키 값: {os.getenv('OPENAI_API_KEY')}")
     if content == None or message == None:
         return {'status': 'FAIL', 'messages': "필수 매개변수값이 없습니다"}
     try:
