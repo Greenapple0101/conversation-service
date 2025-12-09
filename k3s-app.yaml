@@ -77,7 +77,7 @@ spec:
     app: conversation
   type: ClusterIP
   ports:
-    - port: 7003           # 클러스터 내부에서 접근할 포트 (Service가 외부에 노출하는 포트) -> 다른 Pod가 http://flask-service:5000 으로 접근 시 내부적으로 service가 flask-app 라벨이 붙은 Pod로 트래픽 전달
+    - port: 8100           # 클러스터 내부에서 접근할 포트 (Service가 외부에 노출하는 포트) -> 다른 Pod가 http://flask-service:5000 으로 접근 시 내부적으로 service가 flask-app 라벨이 붙은 Pod로 트래픽 전달
       targetPort: 7003     # 포드 내부 컨테이너의 포트
       protocol: TCP
 ---
