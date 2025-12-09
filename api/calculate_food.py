@@ -6,7 +6,7 @@ from flask_restful import Resource
 from flask import request
 from dotenv import load_dotenv
 import requests
-import chat_ai
+from api.ai_client import AIChatBot
 
 load_dotenv(override=False)
 
@@ -37,7 +37,7 @@ class CalculateCalo(Resource):
         [재료]
         {ingredient}
         """
-        response = chat_ai.AIChatBot(content, message)
+        response = AIChatBot(content, message)
         message = response['messages']
         if response['status'] == 'SUCCESS':
             answer = response['messages']
