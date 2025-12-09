@@ -62,5 +62,5 @@ class CalculateCalo(Resource):
             #     data = ast.literal_eval(answer)
             #     return data, 200
         except Exception as e:
-            print(f'오류 발생: {str(e)}')
+            print(f'오류 발생: {str(e)}') #test
             return {'error': str(e)}, 500
