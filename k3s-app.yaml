@@ -42,7 +42,7 @@ spec:
               cpu: "500m"
           livenessProbe: # 헬스체크
             httpGet:
-              path: /health
+              path: /ai/conversation/health
               port: 7003                      # ✅ containerPort와 일치
             initialDelaySeconds: 30
             periodSeconds: 10
@@ -50,7 +50,7 @@ spec:
             failureThreshold: 3
           readinessProbe:
             httpGet:
-              path: /health
+              path: /ai/conversation/health
               port: 7003                      # ✅ containerPort와 일치
             initialDelaySeconds: 10
             periodSeconds: 5
