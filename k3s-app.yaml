@@ -98,4 +98,4 @@ spec:
               service:
                 name: conversation-service # 연결할 service 이름
                 port:
-                  number: 7003 # service의 노출 포트 번호
+                  number: 8100 # service의 노출 포트 번호
