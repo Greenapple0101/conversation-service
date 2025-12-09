@@ -4,7 +4,7 @@ import requests
 import json
 import os
 
-load_dotenv()
+load_dotenv(override=False)
 
 class Summary(Resource):
     def __init__(self):

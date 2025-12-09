@@ -4,7 +4,7 @@ from flask import request
 from dotenv import load_dotenv
 import requests
 
-load_dotenv()
+load_dotenv(override=False)
 
 class ChatAI(Resource):
     def post(self):

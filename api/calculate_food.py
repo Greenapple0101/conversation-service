@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 import requests
 import chat_ai
 
-load_dotenv()
+load_dotenv(override=False)
 
 class CalculateCalo(Resource):
     def post(self):

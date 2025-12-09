@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 from flask_restful import Resource
 from flask import request
 
-load_dotenv()
+load_dotenv(override=False)
 
 def upload_to_s3(file_path):
     requestUrl = f"{os.getenv('SPRING_URL')}/file/upload"
