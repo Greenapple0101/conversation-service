@@ -84,7 +84,7 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: flask-ingress
+  name: flask-conversation-ingress
   annotations:
     ingress.kubernetes.io/ssl-redirect: "false" # https 강제 리다이렉트 비활성화
 spec:
@@ -96,6 +96,6 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: flask-service # 연결할 service 이름
+                name: conversation-service # 연결할 service 이름
                 port:
                   number: 7003 # service의 노출 포트 번호

@@ -19,7 +19,7 @@ api.add_resource(CreateImage, "/ai/conversation/CreateIm")
 api.add_resource(ChatAI, "/ai/conversation/ChatAI")
 api.add_resource(CalculateCalo, "/ai/conversation/calculate-calo")
 
-@app.route('/health')
+@app.route('/ai/conversation/health')
 def health():
     return {"status": "ok", "service": "conversation-service"}, 200
 
