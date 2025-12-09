@@ -40,22 +40,22 @@ spec:
             limits:
               memory: "512Mi"
               cpu: "500m"
-          livenessProbe: # 헬스체크
-            httpGet:
-              path: /ai/conversation/health
-              port: 7003                      # ✅ containerPort와 일치
-            initialDelaySeconds: 30
-            periodSeconds: 10
-            timeoutSeconds: 5
-            failureThreshold: 3
-          readinessProbe:
-            httpGet:
-              path: /ai/conversation/health
-              port: 7003                      # ✅ containerPort와 일치
-            initialDelaySeconds: 10
-            periodSeconds: 5
-            timeoutSeconds: 3
-            failureThreshold: 3
+#          livenessProbe: # 헬스체크
+#            httpGet:
+#              path: /ai/conversation/health
+#              port: 7003                      # ✅ containerPort와 일치
+#            initialDelaySeconds: 30
+#            periodSeconds: 10
+#            timeoutSeconds: 5
+#            failureThreshold: 3
+#          readinessProbe:
+#            httpGet:
+#              path: /ai/conversation/health
+#              port: 7003                      # ✅ containerPort와 일치
+#            initialDelaySeconds: 10
+#            periodSeconds: 5
+#            timeoutSeconds: 3
+#            failureThreshold: 3
       restartPolicy: Always
       volumes:
         - name: google-cred
