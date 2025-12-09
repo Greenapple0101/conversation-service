@@ -6,7 +6,6 @@ from flask_restful import Resource
 from flask import request
 from dotenv import load_dotenv
 import requests
-from api.ai_client import AIChatBot
 
 load_dotenv(override=False)
 
@@ -14,6 +13,7 @@ load_dotenv(override=False)
 class CalculateCalo(Resource):
     def post(self):
         try:
+            print("요청 처리 시작")
             api_key = os.getenv("OPENAI_API_KEY")
             messages = [{"role": "assistant", "content": '''
                     너는 음식의 칼로리 계산기야. 
@@ -52,14 +52,15 @@ class CalculateCalo(Resource):
             response = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload)
             print(f"response json 형식: {response.json()}")
             answer = response.json()["choices"][0]['message']['content']
-            print(f'answer? :{str(answer)}')
-            print(f'반환 {answer}')
-            try:
-                data = json.loads(answer)
-                return data, 200
-            except Exception as e:
-                data = ast.literal_eval(answer)
-                return data, 200
+            return answer, 200
+            # print(f'answer? :{str(answer)}')
+            # print(f'반환 {answer}')
+            # try:
+            #     data = json.loads(answer)
+            #     return data, 200
+            # except Exception as e:
+            #     data = ast.literal_eval(answer)
+            #     return data, 200
         except Exception as e:
-            print(f'오류 발생: {e}')
-            return {'error': e}, 500
+            print(f'오류 발생: {str(e)}')
+            return {'error': str(e)}, 500
