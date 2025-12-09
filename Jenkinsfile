@@ -23,7 +23,7 @@ pipeline {
 
         /* ✅ Deploy */
         DEPLOY_USER = "ubuntu"
-        DEPLOY_SERVER = "3.34.155.126"
+        DEPLOY_SERVER = "13.124.109.82"
         DEPLOY_PATH = "/home/ubuntu/k3s-deploy"
         YAML_FILE = "k3s-app.yaml"
     }
