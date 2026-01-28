@@ -1,6 +1,6 @@
 # Conversation Service - 배포 가이드
 
-이 문서는 Conversation Service의 배포 방법을 설명합니다.
+이 문서는 Conversation Service의 배포 방법을 설명합니다. 위 프로그램은 제가 직접 코딩하지 않은 프로젝트입니다.
 
 ## 배포 환경
 
